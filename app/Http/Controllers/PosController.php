@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\TierDiscount;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class PosController extends Controller
@@ -162,47 +163,83 @@ class PosController extends Controller
             'kitchen_notes' => 'nullable|string',
             'is_bar_item' => 'nullable|boolean',
         ]);
+        return DB::transaction(function () use ($validated, $order) {
+            $product = Product::whereKey($validated['product_id'])->lockForUpdate()->first();
+            $price = $product->selling_price ?? $product->price;
+            $requestedQty = (int) $validated['quantity'];
 
-        $product = Product::find($validated['product_id']);
-        $price = $product->selling_price ?? $product->price;
+            if (!$product->is_unlimited_stock && $product->quantity < $requestedQty) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Not enough stock available',
+                    'available' => $product->quantity,
+                ], 422);
+            }
 
-        $existingItem = OrderItem::where('order_id', $order->id)
-            ->where('product_id', $product->id)
-            ->first();
+            $existingItem = OrderItem::where('order_id', $order->id)
+                ->where('product_id', $product->id)
+                ->lockForUpdate()
+                ->first();
 
-        if ($existingItem) {
-            $existingItem->quantity += $validated['quantity'];
-            $existingItem->subtotal = $existingItem->unit_price * $existingItem->quantity;
-            $existingItem->save();
-            $item = $existingItem;
-        } else {
-            $item = OrderItem::create([
-                'order_id' => $order->id,
-                'product_id' => $product->id,
-                'product_name' => $product->name,
-                'unit_price' => $price,
-                'quantity' => $validated['quantity'],
-                'subtotal' => $price * $validated['quantity'],
-                'kitchen_notes' => $validated['kitchen_notes'] ?? null,
-                'is_bar_item' => $validated['is_bar_item'] ?? false,
+            if ($existingItem) {
+                $existingItem->quantity += $requestedQty;
+                $existingItem->subtotal = $existingItem->unit_price * $existingItem->quantity;
+                $existingItem->save();
+                $item = $existingItem;
+            } else {
+                $item = OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'unit_price' => $price,
+                    'quantity' => $requestedQty,
+                    'subtotal' => $price * $requestedQty,
+                    'kitchen_notes' => $validated['kitchen_notes'] ?? null,
+                    'is_bar_item' => $validated['is_bar_item'] ?? false,
+                ]);
+            }
+
+            if (!$product->is_unlimited_stock) {
+                $product->decrement('quantity', $requestedQty);
+            }
+
+            $this->updateOrderTotals($order);
+
+            return response()->json([
+                'success' => true,
+                'item_id' => $item->id,
+                'message' => $product->name . ' added to order',
+                'product' => [
+                    'id' => $product->id,
+                    'is_unlimited_stock' => $product->is_unlimited_stock,
+                    'quantity' => $product->fresh()->quantity,
+                ],
             ]);
-        }
-
-        $this->updateOrderTotals($order);
-
-        return response()->json([
-            'success' => true,
-            'item_id' => $item->id,
-            'message' => $product->name . ' added to order',
-        ]);
+        });
     }
 
     public function removeItem(Request $request, Order $order, OrderItem $item)
     {
-        $item->delete();
-        $this->updateOrderTotals($order);
+        return DB::transaction(function () use ($order, $item) {
+            $product = Product::whereKey($item->product_id)->lockForUpdate()->first();
 
-        return response()->json(['success' => true, 'message' => 'Item removed']);
+            if ($product && !$product->is_unlimited_stock) {
+                $product->increment('quantity', $item->quantity);
+            }
+
+            $item->delete();
+            $this->updateOrderTotals($order);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Item removed',
+                'product' => $product ? [
+                    'id' => $product->id,
+                    'is_unlimited_stock' => $product->is_unlimited_stock,
+                    'quantity' => $product->fresh()->quantity,
+                ] : null,
+            ]);
+        });
     }
 
     public function updateItem(Request $request, Order $order, OrderItem $item)
@@ -212,15 +249,44 @@ class PosController extends Controller
             'kitchen_notes' => 'nullable|string',
         ]);
 
-        $item->update([
-            'quantity' => $validated['quantity'],
-            'subtotal' => $item->unit_price * $validated['quantity'],
-            'kitchen_notes' => $validated['kitchen_notes'] ?? $item->kitchen_notes,
-        ]);
+        return DB::transaction(function () use ($order, $item, $validated) {
+            $product = Product::whereKey($item->product_id)->lockForUpdate()->first();
+            $newQuantity = (int) $validated['quantity'];
+            $difference = $newQuantity - $item->quantity;
 
-        $this->updateOrderTotals($order);
+            if ($difference > 0 && $product && !$product->is_unlimited_stock) {
+                if ($product->quantity < $difference) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Not enough stock available',
+                        'available' => $product->quantity,
+                    ], 422);
+                }
+                $product->decrement('quantity', $difference);
+            }
 
-        return response()->json(['success' => true, 'message' => 'Item updated']);
+            if ($difference < 0 && $product && !$product->is_unlimited_stock) {
+                $product->increment('quantity', abs($difference));
+            }
+
+            $item->update([
+                'quantity' => $newQuantity,
+                'subtotal' => $item->unit_price * $newQuantity,
+                'kitchen_notes' => $validated['kitchen_notes'] ?? $item->kitchen_notes,
+            ]);
+
+            $this->updateOrderTotals($order);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Item updated',
+                'product' => $product ? [
+                    'id' => $product->id,
+                    'is_unlimited_stock' => $product->is_unlimited_stock,
+                    'quantity' => $product->fresh()->quantity,
+                ] : null,
+            ]);
+        });
     }
 
     public function holdOrder(Order $order)
