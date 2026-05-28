@@ -75,6 +75,18 @@
         }
         .product-card:hover { border-color: #dc2626; box-shadow: 0 4px 16px rgba(220,38,38,0.15); transform: translateY(-2px); }
         .product-card:active { transform: scale(0.97); }
+        .product-card--disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .product-card--disabled:hover { border-color: #e2e8f0; box-shadow: none; transform: none; }
+        .stock-badge {
+            position: absolute; top: 6px; right: 6px;
+            font-size: 10px; font-weight: 700; padding: 2px 6px;
+            border-radius: 999px; background: #f1f5f9; color: #0f172a;
+        }
+        .stock-badge.in  { background: #dcfce7; color: #166534; }
+        .stock-badge.out { background: #fee2e2; color: #b91c1c; }
 
         /* ── Bill items ── */
         .bill-item {
@@ -465,6 +477,7 @@
     let currentKotContent     = '';
     let currentBillContent    = '';
     let tableFilter           = 'all';
+    let currentCategoryId      = 0;
 
     // ── Bootstrap ──
     async function initPos() {
@@ -754,6 +767,7 @@
         try {
             search     = search     || '';
             categoryId = categoryId || 0;
+            currentCategoryId = categoryId;
             const params = new URLSearchParams();
             if (search)         params.append('search', search);
             if (categoryId > 0) params.append('category_id', categoryId);
@@ -765,6 +779,29 @@
             console.error('Load products error:', e);
             toast('Error loading products', 'error');
         }
+    }
+
+    function getActiveCategoryId() {
+        const active = document.querySelector('#categoriesContainer .cat-pill.active');
+        if (active && active.getAttribute('data-category')) {
+            return parseInt(active.getAttribute('data-category'), 10) || 0;
+        }
+        return currentCategoryId || 0;
+    }
+
+    async function refreshProducts() {
+        const searchInput = document.getElementById('searchInput');
+        const searchValue = searchInput ? searchInput.value : '';
+        await loadProducts(searchValue, getActiveCategoryId());
+    }
+
+    function applyProductStockUpdate(updatedProduct) {
+        if (!updatedProduct || !allProducts.length) return;
+        const index = allProducts.findIndex(function(p) { return p.id === updatedProduct.id; });
+        if (index === -1) return;
+        allProducts[index].quantity = updatedProduct.quantity;
+        allProducts[index].is_unlimited_stock = updatedProduct.is_unlimited_stock;
+        renderProducts();
     }
 
     function loadCategories() {
@@ -783,6 +820,7 @@
     function selectCategory(id, btn) {
         document.querySelectorAll('#categoriesContainer .cat-pill').forEach(function(b) { b.classList.remove('active'); });
         if (btn) btn.classList.add('active');
+        currentCategoryId = id;
         loadProducts(document.getElementById('searchInput').value, id);
     }
 
@@ -793,6 +831,13 @@
             return;
         }
         container.innerHTML = allProducts.map(function(p) {
+            const outOfStock = !p.is_unlimited_stock && p.quantity <= 0;
+            const stockLabel = p.is_unlimited_stock ? '∞' : p.quantity;
+            const stockClass = outOfStock ? 'stock-badge out' : 'stock-badge in';
+            const cardClass = outOfStock ? 'product-card product-card--disabled' : 'product-card';
+            const clickAction = outOfStock
+                ? ''
+                : 'onclick="addProductToOrder(' + p.id + ', \'" + escapeJs(p.name) + "\', ' + p.price + ')"';
             let imageHtml = '';
             if (p.image) {
                 imageHtml = '<img src="/storage/' + p.image + '" alt="' + escapeHtml(p.name) + '" '
@@ -801,9 +846,10 @@
                 imageHtml = '<i class="fas fa-utensils" style="color:#dc2626; font-size:18px;"></i>';
             }
 
-            return '<div class="product-card" onclick="addProductToOrder(' + p.id + ', \'' + escapeJs(p.name) + '\', ' + p.price + ')">'
+            return '<div class="' + cardClass + '" ' + clickAction + '>'
                 + '<div style="height:80px; background:linear-gradient(135deg,#fef2f2,#fee2e2); border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:10px; overflow:hidden; position:relative;">'
                 + imageHtml
+                + '<span class="' + stockClass + '">Stock: ' + stockLabel + '</span>'
                 + '</div>'
                 + '<p style="font-size:12px; font-weight:700; color:#0f172a; margin:0 0 4px; line-height:1.3; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">' + escapeHtml(p.name) + '</p>'
                 + '<p style="font-size:14px; font-weight:900; color:#dc2626; margin:0;">Rs. ' + p.price.toFixed(2) + '</p>'
@@ -816,6 +862,11 @@
     // ═══════════════════════════════════════════
 
     async function addProductToOrder(productId, productName, price) {
+        const product = allProducts.find(function(p) { return p.id === productId; });
+        if (product && !product.is_unlimited_stock && product.quantity <= 0) {
+            toast('Out of stock', 'error');
+            return;
+        }
         if (!currentOrder || !currentOrder.id) {
             const selectEl = document.getElementById('orderTypeSelect');
             const orderType = selectEl ? selectEl.value : 'dine_in';
@@ -858,12 +909,15 @@
             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
             body: JSON.stringify({ product_id: productId, quantity: 1 })
         });
-        const data = await res.json();
-        if (data.success) {
+        const data = await res.json().catch(function() { return {}; });
+        if (!res.ok || !data.success) {
+            toast(data.message || 'Failed to add item to order', 'error');
             await syncOrder();
-        } else {
-            toast('Failed to add item to order', 'error');
+            await refreshProducts();
+            return;
         }
+        applyProductStockUpdate(data.product);
+        await syncOrder();
     }
 
     async function syncOrder() {
@@ -885,11 +939,19 @@
         item.subtotal = item.unit_price * item.quantity;
         recalcOrderTotals();
         renderBill();
-        await fetch('{{ route("pos.item.update", [":id", ":item"]) }}'.replace(':id', currentOrder.id).replace(':item', itemId), {
+        const res = await fetch('{{ route("pos.item.update", [":id", ":item"]) }}'.replace(':id', currentOrder.id).replace(':item', itemId), {
             method: 'PUT',
             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
             body: JSON.stringify({ quantity: item.quantity })
         });
+        const data = await res.json().catch(function() { return {}; });
+        if (!res.ok || !data.success) {
+            toast(data.message || 'Failed to update item', 'error');
+            await syncOrder();
+            await refreshProducts();
+            return;
+        }
+        applyProductStockUpdate(data.product);
         await syncOrder();
     }
 
@@ -900,11 +962,19 @@
         item.subtotal = item.unit_price * item.quantity;
         recalcOrderTotals();
         renderBill();
-        await fetch('{{ route("pos.item.update", [":id", ":item"]) }}'.replace(':id', currentOrder.id).replace(':item', itemId), {
+        const res = await fetch('{{ route("pos.item.update", [":id", ":item"]) }}'.replace(':id', currentOrder.id).replace(':item', itemId), {
             method: 'PUT',
             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
             body: JSON.stringify({ quantity: item.quantity })
         });
+        const data = await res.json().catch(function() { return {}; });
+        if (!res.ok || !data.success) {
+            toast(data.message || 'Failed to update item', 'error');
+            await syncOrder();
+            await refreshProducts();
+            return;
+        }
+        applyProductStockUpdate(data.product);
         await syncOrder();
     }
 
@@ -912,10 +982,18 @@
         currentOrder.items = currentOrder.items.filter(function(i) { return i.id !== itemId; });
         recalcOrderTotals();
         renderBill();
-        await fetch('{{ route("pos.item.remove", [":id", ":item"]) }}'.replace(':id', currentOrder.id).replace(':item', itemId), {
+        const res = await fetch('{{ route("pos.item.remove", [":id", ":item"]) }}'.replace(':id', currentOrder.id).replace(':item', itemId), {
             method: 'DELETE',
             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
         });
+        const data = await res.json().catch(function() { return {}; });
+        if (!res.ok || !data.success) {
+            toast(data.message || 'Failed to remove item', 'error');
+            await syncOrder();
+            await refreshProducts();
+            return;
+        }
+        applyProductStockUpdate(data.product);
         await syncOrder();
     }
 
