@@ -415,6 +415,13 @@
                         <div id="changeDisplay" style="font-size:12px; font-weight:700; color:#16a34a; padding:5px 6px; background:#f0fdf4; border-radius:5px; border:1px solid #bbf7d0; text-align:center;">Rs. 0.00</div>
                     </div>
                 </div>
+                <!-- Card amount display -->
+                <div id="cardSection" style="display:none; gap:6px;">
+                    <div style="flex:1;">
+                        <label style="font-size:9px; font-weight:600; color:#64748b; display:block; margin-bottom:2px;">Paid</label>
+                        <div id="cardPaidDisplay" style="font-size:12px; font-weight:700; color:#0f172a; padding:5px 6px; background:#f8fafc; border-radius:5px; border:1px solid #e2e8f0; text-align:center;">Rs. 0.00</div>
+                    </div>
+                </div>
             </div>
 
             <!-- Action buttons -->
@@ -936,9 +943,10 @@
             const stockLabel = p.is_unlimited_stock ? '∞' : p.quantity;
             const stockClass = outOfStock ? 'stock-badge out' : 'stock-badge in';
             const cardClass = outOfStock ? 'product-card product-card--disabled' : 'product-card';
+            const nameArg = JSON.stringify(p.name || '');
             const clickAction = outOfStock
                 ? ''
-                : 'onclick="addProductToOrder(' + p.id + ', \'" + escapeJs(p.name) + "\', ' + p.price + ')"';
+                : "onclick='addProductToOrder(" + p.id + ", " + nameArg + ", " + p.price + ")'";
             let imageHtml = '';
             if (p.image) {
                 imageHtml = '<img src="/storage/' + p.image + '" alt="' + escapeHtml(p.name) + '" '
@@ -1477,7 +1485,9 @@
             btn.classList.toggle('active', btn.dataset.method === method);
         });
         document.getElementById('cashSection').style.display = method === 'cash' ? 'flex' : 'none';
+        document.getElementById('cardSection').style.display = method === 'card' ? 'flex' : 'none';
         if (method !== 'cash') document.getElementById('changeDisplay').textContent = 'Rs. 0.00';
+        updateCardPaidDisplay();
     }
 
     function calcDiscount(subtotal) {
@@ -1494,13 +1504,26 @@
         const discount = calcDiscount(subtotal);
         document.getElementById('totalDisplay').textContent = 'Rs. ' + Math.max(0, subtotal - discount).toFixed(2);
         updateChange();
+        updateCardPaidDisplay();
+    }
+
+    function getTotalDue() {
+        if (!currentOrder) return 0;
+        const subtotal = currentOrder.subtotal || 0;
+        const discount = calcDiscount(subtotal);
+        return Math.max(0, subtotal - discount);
+    }
+
+    function updateCardPaidDisplay() {
+        if (selectedPaymentMethod !== 'card') return;
+        const total = getTotalDue();
+        const el = document.getElementById('cardPaidDisplay');
+        if (el) el.textContent = 'Rs. ' + total.toFixed(2);
     }
 
     function updateChange() {
         if (selectedPaymentMethod !== 'cash') return;
-        const subtotal = currentOrder ? (currentOrder.subtotal || 0) : 0;
-        const discount = calcDiscount(subtotal);
-        const total    = Math.max(0, subtotal - discount);
+        const total    = getTotalDue();
         const paid     = parseFloat(document.getElementById('amountPaid').value) || 0;
         const change   = Math.max(0, paid - total);
         const el       = document.getElementById('changeDisplay');
@@ -1514,11 +1537,17 @@
         }
         await saveCustomerInfo();
 
-        const subtotal    = currentOrder.subtotal || 0;
-        const discountVal = calcDiscount(subtotal);
-        const total       = Math.max(0, subtotal - discountVal);
+        const total = getTotalDue();
+        if (selectedPaymentMethod === 'cash') {
+            const paidValue = parseFloat(document.getElementById('amountPaid').value);
+            if (!Number.isFinite(paidValue) || paidValue <= 0) {
+                toast('Enter cash paid amount to complete payment', 'error');
+                document.getElementById('amountPaid').focus();
+                return;
+            }
+        }
         const amountPaid  = selectedPaymentMethod === 'cash'
-            ? (parseFloat(document.getElementById('amountPaid').value) || total)
+            ? parseFloat(document.getElementById('amountPaid').value)
             : total;
 
         const res = await fetch('{{ route("pos.order.pay", ":id") }}'.replace(':id', currentOrder.id), {
@@ -1538,9 +1567,8 @@
         const data = await res.json();
         if (data.success) {
             showPaidBill(data);
-            printBillContent();
             await loadTables();
-            toast('Payment received & bill printed — table closed!', 'success');
+            toast('Payment received — table closed!', 'success');
         } else {
             toast(data.error || 'Payment failed', 'error');
         }
@@ -1812,6 +1840,7 @@
             b.classList.toggle('active', b.dataset.method === 'cash');
         });
         document.getElementById('cashSection').style.display = 'flex';
+        document.getElementById('cardSection').style.display = 'none';
         document.querySelectorAll('.table-card.expanded').forEach(function(c) { c.classList.remove('expanded'); });
         document.querySelectorAll('.table-card.selected').forEach(function(c) { c.classList.remove('selected'); });
     }
@@ -1863,12 +1892,28 @@
         // Close modal on backdrop click
         document.querySelectorAll('.modal-overlay').forEach(function(overlay) {
             overlay.addEventListener('click', function(e) {
+                if (overlay.dataset.noClose === 'true') return;
                 if (e.target === overlay) overlay.classList.remove('open');
             });
         });
     }
 
     window.addEventListener('load', initPos);
+</script>
+
+<script>
+    document.addEventListener('focusin', function (event) {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        if (target.type !== 'number' && !target.dataset.clearZero) return;
+        if (target.dataset.clearedZero === 'true') return;
+        const value = (target.value || '').trim();
+        if (value === '') return;
+        if (!Number.isFinite(Number(value))) return;
+        if (Number(value) !== 0) return;
+        target.value = '';
+        target.dataset.clearedZero = 'true';
+    });
 </script>
 </body>
 </html>
