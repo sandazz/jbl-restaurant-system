@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\RestaurantTable;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\TierDiscount;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -15,16 +16,18 @@ class PosController extends Controller
 {
     public function index()
     {
-        $tables = RestaurantTable::all()->load('activeOrder.items');
-        $categories = Category::where('status', 'active')->orderBy('sort_order')->get();
-        $products = Product::where('status', 'active')->get();
-        $modules = auth()->user()->role->modules()->get();
+        $tables       = RestaurantTable::all()->load('activeOrder.items');
+        $categories   = Category::where('status', 'active')->orderBy('sort_order')->get();
+        $products     = Product::where('status', 'active')->get();
+        $modules      = auth()->user()->role->modules()->get();
+        $tierDiscounts = TierDiscount::activeMap(); // ['VIP' => 15.0, 'Moderate' => 10.0, ...]
 
         return view('modules.pos', [
-            'tables' => $tables,
-            'categories' => $categories,
-            'products' => $products,
-            'modules' => $modules,
+            'tables'        => $tables,
+            'categories'    => $categories,
+            'products'      => $products,
+            'modules'       => $modules,
+            'tierDiscounts' => $tierDiscounts,
         ]);
     }
 
@@ -395,13 +398,15 @@ class PosController extends Controller
     public function updateCustomer(Request $request, Order $order)
     {
         $validated = $request->validate([
-            'customer_name' => 'nullable|string',
+            'customer_id'    => 'nullable|integer|exists:customers,id',
+            'customer_name'  => 'nullable|string',
             'customer_phone' => 'nullable|string',
         ]);
 
         $order->update([
-            'customer_name' => $validated['customer_name'],
-            'customer_phone' => $validated['customer_phone'],
+            'customer_id'    => $validated['customer_id'] ?? null,
+            'customer_name'  => $validated['customer_name'] ?? null,
+            'customer_phone' => $validated['customer_phone'] ?? null,
         ]);
 
         return response()->json([

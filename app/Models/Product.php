@@ -25,13 +25,13 @@ class Product extends Model
     ];
 
     protected $casts = [
-        'price' => 'decimal:2',
-        'cost_price' => 'decimal:2',
-        'selling_price' => 'decimal:2',
-        'discount' => 'decimal:2',
+        'price'              => 'decimal:2',
+        'cost_price'         => 'decimal:2',
+        'selling_price'      => 'decimal:2',
+        'discount'           => 'decimal:2',
         'is_unlimited_stock' => 'boolean',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
+        'created_at'         => 'datetime',
+        'updated_at'         => 'datetime',
     ];
 
     public function category()
@@ -57,5 +57,13 @@ class Product extends Model
     public function stockMovements()
     {
         return $this->hasMany(StockMovement::class);
+    }
+
+    /** Raw material ingredients required to produce one portion of this menu item */
+    public function ingredients()
+    {
+        return $this->belongsToMany(Inventory::class, 'menu_item_ingredient')
+            ->withPivot('quantity_required')
+            ->withTimestamps();
     }
 }

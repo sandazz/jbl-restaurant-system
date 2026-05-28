@@ -8,6 +8,7 @@ class Order extends Model
 {
     protected $fillable = [
         'order_number',
+        'token_number',
         'table_id',
         'customer_id',
         'customer_name',
@@ -32,19 +33,19 @@ class Order extends Model
     ];
 
     protected $casts = [
-        'subtotal' => 'decimal:2',
-        'discount_amount' => 'decimal:2',
-        'tax_amount' => 'decimal:2',
-        'total' => 'decimal:2',
-        'amount_paid' => 'decimal:2',
-        'change_amount' => 'decimal:2',
-        'live_bill_enabled' => 'boolean',
-        'kot_printed_at' => 'datetime',
-        'bot_printed_at' => 'datetime',
+        'subtotal'               => 'decimal:2',
+        'discount_amount'        => 'decimal:2',
+        'tax_amount'             => 'decimal:2',
+        'total'                  => 'decimal:2',
+        'amount_paid'            => 'decimal:2',
+        'change_amount'          => 'decimal:2',
+        'live_bill_enabled'      => 'boolean',
+        'kot_printed_at'         => 'datetime',
+        'bot_printed_at'         => 'datetime',
         'waiter_bill_printed_at' => 'datetime',
-        'printed_at' => 'datetime',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
+        'printed_at'             => 'datetime',
+        'created_at'             => 'datetime',
+        'updated_at'             => 'datetime',
     ];
 
     public function table()
@@ -65,5 +66,20 @@ class Order extends Model
     public function items()
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function auditLogs()
+    {
+        return $this->hasMany(AuditLog::class);
+    }
+
+    public function isOnHold(): bool
+    {
+        return $this->status === 'hold';
+    }
+
+    public function isCompleted(): bool
+    {
+        return $this->status === 'completed';
     }
 }

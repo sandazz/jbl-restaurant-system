@@ -9,13 +9,20 @@
                 <h1 class="text-4xl font-bold text-gray-900">Customer Management</h1>
                 <p class="text-gray-600 mt-2">Manage customers and customer information</p>
             </div>
-            <a href="{{ route('customers.create') }}" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors">
-                <i class="fas fa-plus mr-2"></i>Add Customer
-            </a>
+            <div class="flex items-center gap-3">
+                <a href="{{ route('tier-discounts.index') }}"
+                   class="inline-flex items-center gap-2 border border-yellow-400 text-yellow-700 bg-yellow-50 hover:bg-yellow-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                    <i class="fas fa-tags"></i> Manage Tiers
+                </a>
+                <a href="{{ route('customers.create') }}"
+                   class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors">
+                    <i class="fas fa-plus mr-2"></i>Add Customer
+                </a>
+            </div>
         </div>
 
         @if(session('success'))
-            <div class="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+            <div class="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
                 <i class="fas fa-check-circle mr-2"></i>{{ session('success') }}
             </div>
         @endif
@@ -28,6 +35,7 @@
                             <tr>
                                 <th class="px-6 py-3 text-left text-sm font-semibold text-gray-900">Name</th>
                                 <th class="px-6 py-3 text-left text-sm font-semibold text-gray-900">Phone Number</th>
+                                <th class="px-6 py-3 text-left text-sm font-semibold text-gray-900">Tier</th>
                                 <th class="px-6 py-3 text-left text-sm font-semibold text-gray-900">Address</th>
                                 <th class="px-6 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
                                 <th class="px-6 py-3 text-center text-sm font-semibold text-gray-900">Actions</th>
@@ -36,8 +44,17 @@
                         <tbody class="divide-y divide-gray-200">
                             @foreach($customers as $customer)
                                 <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ $customer->name }}</td>
+                                    <td class="px-6 py-4 text-sm font-medium text-gray-900">
+                                        {{ $customer->formattedName() }}
+                                    </td>
                                     <td class="px-6 py-4 text-sm text-gray-600">{{ $customer->phone_number }}</td>
+                                    <td class="px-6 py-4">
+                                        @if($customer->tier)
+                                            <x-tier-badge :tier="$customer->tier" :customer="$customer" />
+                                        @else
+                                            <span class="text-gray-400 text-xs">—</span>
+                                        @endif
+                                    </td>
                                     <td class="px-6 py-4 text-sm text-gray-600">{{ $customer->address ?? 'N/A' }}</td>
                                     <td class="px-6 py-4 text-sm">
                                         <span class="px-3 py-1 rounded-full text-xs font-semibold {{ $customer->status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
