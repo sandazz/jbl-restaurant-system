@@ -693,6 +693,17 @@
 
         // If clicking the same table that's already selected and no items, deselect it
         if (currentTable && currentTable.id === tableId && (!currentOrder || !currentOrder.items || currentOrder.items.length === 0)) {
+            // Cancel the order on the server to free the table
+            if (currentOrder && currentOrder.id) {
+                try {
+                    await fetch('{{ route("pos.order.close_table", ":id") }}'.replace(':id', currentOrder.id), {
+                        method: 'POST',
+                        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+                    });
+                } catch (e) {
+                    console.error('Close table error:', e);
+                }
+            }
             resetOrder();
             await loadTables();
             return;
@@ -1021,6 +1032,53 @@
     // BILL PANEL RENDER
     // ═══════════════════════════════════════════
 
+    // function renderTableView() {
+    //     if (!currentTable && !currentOrder) {
+    //         document.getElementById('selectedTableLabel').innerHTML =
+    //             '<i class="fas fa-arrow-left" style="font-size:11px; margin-right:4px;"></i>Select a table or create takeaway order';
+    //         document.getElementById('customerInfoToggle').style.display = 'none';
+    //         document.getElementById('activeOrderBanner').style.display   = 'none';
+    //         return;
+    //     }
+
+    //     if (!currentTable && currentOrder) {
+    //         const displayType = currentOrder.order_type ? 
+    //                             currentOrder.order_type.charAt(0).toUpperCase() + currentOrder.order_type.slice(1) : 
+    //                             'Takeaway';
+                                
+    //         document.getElementById('selectedTableLabel').innerHTML =
+    //             '🛍 <strong>' + displayType + ' Order</strong> — ' + (currentOrder.order_number || '—');
+    //         document.getElementById('customerInfoToggle').style.display = 'flex';
+    //         document.getElementById('activeOrderBanner').style.display   = 'flex';
+    //         document.getElementById('activeOrderText').textContent = displayType + ' — adding items';
+    //         return;
+    //     }
+
+    //     const sectionLabel = currentTable.section === 'vip' ? '🟣 VIP' : '🍽';
+    //     document.getElementById('selectedTableLabel').innerHTML =
+    //         sectionLabel + ' <strong>Table ' + currentTable.table_number + '</strong> — ' + escapeHtml(currentTable.name);
+    //     document.getElementById('customerInfoToggle').style.display = 'flex';
+    //     document.getElementById('activeOrderBanner').style.display   = 'flex';
+    //     document.getElementById('activeOrderText').textContent = 'Adding to Table ' + currentTable.table_number;
+
+    //     if (currentOrder) {
+    //         if (currentOrder.customer_id) {
+    //             const tier = currentOrder.customer?.tier || 'New';
+    //             selectCustomer(
+    //                 currentOrder.customer_id,
+    //                 currentOrder.customer_name  || '',
+    //                 currentOrder.customer_phone || '',
+    //                 tier
+    //             );
+    //         } else {
+    //             document.getElementById('customerName').value  = currentOrder.customer_name  || '';
+    //             document.getElementById('customerPhone').value = currentOrder.customer_phone || '';
+    //             document.getElementById('selectedCustomerChip').style.display = 'none';
+    //             document.getElementById('customerSearchInputs').style.display = 'grid';
+    //         }
+    //     }
+    // }
+
     function renderTableView() {
         if (!currentTable && !currentOrder) {
             document.getElementById('selectedTableLabel').innerHTML =
@@ -1031,41 +1089,54 @@
         }
 
         if (!currentTable && currentOrder) {
+            // Takeaway / Delivery / VIP Room
             const displayType = currentOrder.order_type ? 
                                 currentOrder.order_type.charAt(0).toUpperCase() + currentOrder.order_type.slice(1) : 
                                 'Takeaway';
-                                
             document.getElementById('selectedTableLabel').innerHTML =
                 '🛍 <strong>' + displayType + ' Order</strong> — ' + (currentOrder.order_number || '—');
             document.getElementById('customerInfoToggle').style.display = 'flex';
             document.getElementById('activeOrderBanner').style.display   = 'flex';
             document.getElementById('activeOrderText').textContent = displayType + ' — adding items';
-            return;
+        } else {
+            // Dine-in Table
+            const sectionLabel = currentTable.section === 'vip' ? '🟣 VIP' : '🍽';
+            document.getElementById('selectedTableLabel').innerHTML =
+                sectionLabel + ' <strong>Table ' + currentTable.table_number + '</strong> — ' + escapeHtml(currentTable.name);
+            document.getElementById('customerInfoToggle').style.display = 'flex';
+            document.getElementById('activeOrderBanner').style.display   = 'flex';
+            document.getElementById('activeOrderText').textContent = 'Adding to Table ' + currentTable.table_number;
         }
 
-        const sectionLabel = currentTable.section === 'vip' ? '🟣 VIP' : '🍽';
-        document.getElementById('selectedTableLabel').innerHTML =
-            sectionLabel + ' <strong>Table ' + currentTable.table_number + '</strong> — ' + escapeHtml(currentTable.name);
-        document.getElementById('customerInfoToggle').style.display = 'flex';
-        document.getElementById('activeOrderBanner').style.display   = 'flex';
-        document.getElementById('activeOrderText').textContent = 'Adding to Table ' + currentTable.table_number;
-
+        // ==================== CUSTOMER HANDLING ====================
         if (currentOrder) {
-            if (currentOrder.customer_id) {
-                const tier = currentOrder.customer?.tier || 'New';
+            const hasCustomer = currentOrder.customer_id || 
+                            currentOrder.customer_name || 
+                            currentOrder.customer_phone;
+
+            if (hasCustomer) {
+                const tier = currentOrder.customer?.tier || 
+                            currentOrder.customer_tier || 
+                            currentOrder.tier || 
+                            'New';
+
                 selectCustomer(
                     currentOrder.customer_id,
-                    currentOrder.customer_name  || '',
+                    currentOrder.customer_name || '',
                     currentOrder.customer_phone || '',
                     tier
                 );
             } else {
-                document.getElementById('customerName').value  = currentOrder.customer_name  || '';
-                document.getElementById('customerPhone').value = currentOrder.customer_phone || '';
+                // No customer attached
                 document.getElementById('selectedCustomerChip').style.display = 'none';
                 document.getElementById('customerSearchInputs').style.display = 'grid';
+                document.getElementById('customerName').value  = '';
+                document.getElementById('customerPhone').value = '';
             }
         }
+
+        // Force recalculation after render
+        setTimeout(recalcTotal, 100);
     }
 
     function renderBill() {
@@ -1553,6 +1624,7 @@
         });
         toast('Order held');
         resetOrder();
+        await loadTables();
         loadHeldOrders();
     }
 
@@ -1645,7 +1717,8 @@
         document.getElementById('paymentSection').style.display         = 'none';
         document.getElementById('waiterPayRow').style.display           = 'none';
         document.getElementById('holdBtn').style.display                = 'none';
-        document.getElementById('confirmLiveBillBtn').style.display     = 'none';
+        const liveBillBtn = document.getElementById('confirmLiveBillBtn');
+        if (liveBillBtn) liveBillBtn.style.display = 'none';
         document.getElementById('customerName').value   = '';
         document.getElementById('customerPhone').value  = '';
         _selectedCustomerId = null;
@@ -1663,7 +1736,6 @@
         document.getElementById('cashSection').style.display = 'flex';
         document.querySelectorAll('.table-card.expanded').forEach(function(c) { c.classList.remove('expanded'); });
         document.querySelectorAll('.table-card.selected').forEach(function(c) { c.classList.remove('selected'); });
-        loadTables();
     }
 
     function printReceipt(html) {
