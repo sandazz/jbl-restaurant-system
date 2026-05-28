@@ -19,8 +19,8 @@ class RestaurantTable extends Model
 
     protected $casts = [
         'occupied_at' => 'datetime',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
+        'created_at'  => 'datetime',
+        'updated_at'  => 'datetime',
     ];
 
     public function orders()
@@ -33,5 +33,35 @@ class RestaurantTable extends Model
         return $this->hasOne(Order::class, 'table_id')
             ->whereIn('status', ['pending', 'confirmed', 'hold'])
             ->latest();
+    }
+
+    /** Minutes elapsed since table became occupied. Returns null when not occupied. */
+    public function elapsedMinutes(): ?int
+    {
+        if (!$this->occupied_at) {
+            return null;
+        }
+
+        return (int) $this->occupied_at->diffInMinutes(now());
+    }
+
+    public function isAvailable(): bool
+    {
+        return $this->status === 'available';
+    }
+
+    public function markOccupied(): void
+    {
+        $this->update(['status' => 'occupied', 'occupied_at' => now()]);
+    }
+
+    public function markAvailable(): void
+    {
+        $this->update(['status' => 'available', 'occupied_at' => null]);
+    }
+
+    public function markBilling(): void
+    {
+        $this->update(['status' => 'billing']);
     }
 }

@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
 @section('title', 'Settings')
 
@@ -10,6 +10,7 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
             <!-- QR Code Management -->
             <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow-sm border border-purple-200 p-6 hover:shadow-md transition">
                 <div class="flex items-start justify-between mb-4">
@@ -29,6 +30,28 @@
                 </ul>
                 <a href="{{ route('qr.admin') }}" class="inline-flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition">
                     <i class="fas fa-qrcode"></i> Manage QR Codes
+                </a>
+            </div>
+
+            <!-- Loyalty Tiers & Discounts -->
+            <div class="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg shadow-sm border border-yellow-200 p-6 hover:shadow-md transition">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <div class="flex items-center gap-3 mb-2">
+                            <i class="fas fa-tags text-yellow-600 text-3xl"></i>
+                            <h3 class="text-xl font-bold text-gray-900">Loyalty Tiers</h3>
+                        </div>
+                        <p class="text-gray-600 text-sm">Define customer loyalty tiers and their automatic POS discounts</p>
+                    </div>
+                </div>
+                <ul class="text-sm text-gray-700 space-y-2 mb-4">
+                    <li>✓ Create custom tier names (VIP, Gold, Silver…)</li>
+                    <li>✓ Set discount % per tier</li>
+                    <li>✓ Auto-applied at POS when customer selected</li>
+                    <li>✓ Colour-coded badges in customer profiles</li>
+                </ul>
+                <a href="{{ route('tier-discounts.index') }}" class="inline-flex items-center gap-2 bg-yellow-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-yellow-600 transition">
+                    <i class="fas fa-tags"></i> Manage Tiers & Discounts
                 </a>
             </div>
 
@@ -52,6 +75,7 @@
                     <i class="fas fa-cog"></i> Coming Soon
                 </button>
             </div>
+
         </div>
     </div>
 @endsection

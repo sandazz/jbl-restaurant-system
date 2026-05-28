@@ -15,6 +15,10 @@ use App\Http\Controllers\PosController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\QrMenuController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\TierDiscountController;
+use App\Http\Controllers\ClerkBalancingController;
+use App\Http\Controllers\RawMaterialController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -41,6 +45,7 @@ Route::middleware('auth')->group(function () {
     })->name('qr.admin');
 
     // Customer CRUD routes
+    Route::get('/customers/search', [CustomerController::class, 'search'])->name('customers.search');
     Route::resource('customers', CustomerController::class);
 
     // Category CRUD routes
@@ -104,4 +109,23 @@ Route::middleware('auth')->group(function () {
         $modules = auth()->user()->role->modules()->get();
         return view('modules.settings', ['modules' => $modules]);
     })->name('settings.index');
+
+    // Tier Discount Configuration
+    Route::get('/tier-discounts', [TierDiscountController::class, 'index'])->name('tier-discounts.index');
+    Route::post('/tier-discounts', [TierDiscountController::class, 'store'])->name('tier-discounts.store');
+    Route::post('/tier-discounts/save-all', [TierDiscountController::class, 'saveAll'])->name('tier-discounts.save-all');
+    Route::delete('/tier-discounts/{tierDiscount}', [TierDiscountController::class, 'destroy'])->name('tier-discounts.destroy');
+
+    // Raw Materials (ERP Inventory) — distinct from the product/menu-item inventory
+    Route::resource('raw-materials', RawMaterialController::class);
+
+    // Audit Logs & EOD Report
+    Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit.index');
+    Route::get('/audit-logs/eod', [AuditLogController::class, 'eodReport'])->name('audit.eod');
+
+    // Cashier Shift Balancing
+    Route::resource('clerk-balancings', ClerkBalancingController::class)
+        ->except(['edit', 'update', 'destroy']);
+    Route::post('/clerk-balancings/{clerkBalancing}/close', [ClerkBalancingController::class, 'closeShift'])
+        ->name('clerk-balancings.close');
 });

@@ -292,14 +292,43 @@
                 <i class="fas fa-chevron-down" id="customerInfoChevron" style="font-size:11px; color:#64748b;"></i>
             </button>
             <div id="customerInfoSection" style="display:none; padding:8px 16px; border-top:1px solid #e2e8f0;">
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-                    <input type="text" id="customerName" placeholder="Name"
-                           style="font-size:11px; border:1.5px solid #bfdbfe; border-radius:6px; padding:6px 8px; background:#fff; outline:none; width:100%;"
-                           onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#bfdbfe'; saveCustomerInfo()">
-                    <input type="text" id="customerPhone" placeholder="Phone"
-                           style="font-size:11px; border:1.5px solid #bfdbfe; border-radius:6px; padding:6px 8px; background:#fff; outline:none; width:100%;"
-                           onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#bfdbfe'; saveCustomerInfo()">
+                <!-- Selected customer chip (shown after picking from list) -->
+                <div id="selectedCustomerChip" style="display:none; align-items:center; justify-content:space-between; background:#eff6ff; border:1.5px solid #bfdbfe; border-radius:6px; padding:5px 8px; margin-bottom:6px;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-user-check" style="color:#1d4ed8; font-size:11px;"></i>
+                        <div>
+                            <div id="chipName" style="font-size:11px; font-weight:600; color:#1e3a8a;"></div>
+                            <div id="chipPhone" style="font-size:10px; color:#64748b;"></div>
+                        </div>
+                        <span id="chipTier" style="font-size:9px; font-weight:700; padding:1px 6px; border-radius:99px; border:1px solid;"></span>
+                    </div>
+                    <button onclick="clearSelectedCustomer()" style="background:none; border:none; cursor:pointer; color:#94a3b8; padding:2px 4px;" title="Clear">
+                        <i class="fas fa-times" style="font-size:11px;"></i>
+                    </button>
                 </div>
+
+                <!-- Search inputs (hidden when a customer is selected) -->
+                <div id="customerSearchInputs" style="display:grid; grid-template-columns:1fr 1fr; gap:6px; position:relative;">
+                    <div style="position:relative;">
+                        <input type="text" id="customerName" placeholder="Search name…"
+                               autocomplete="off"
+                               style="font-size:11px; border:1.5px solid #bfdbfe; border-radius:6px; padding:6px 8px; background:#fff; outline:none; width:100%; box-sizing:border-box;"
+                               oninput="onCustomerInput('name')"
+                               onfocus="this.style.borderColor='#3b82f6'"
+                               onblur="this.style.borderColor='#bfdbfe'">
+                    </div>
+                    <div style="position:relative;">
+                        <input type="text" id="customerPhone" placeholder="Search phone…"
+                               autocomplete="off"
+                               style="font-size:11px; border:1.5px solid #bfdbfe; border-radius:6px; padding:6px 8px; background:#fff; outline:none; width:100%; box-sizing:border-box;"
+                               oninput="onCustomerInput('phone')"
+                               onfocus="this.style.borderColor='#3b82f6'"
+                               onblur="this.style.borderColor='#bfdbfe'">
+                    </div>
+                </div>
+
+                <!-- Dropdown results (absolutely positioned below the inputs) -->
+                <div id="customerDropdown" style="display:none; position:absolute; z-index:999; background:#fff; border:1.5px solid #bfdbfe; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.12); overflow:hidden; margin-top:2px; width:calc(100% - 32px);"></div>
             </div>
         </div>
 
@@ -322,6 +351,12 @@
                     <span>Subtotal</span>
                     <span id="subtotalDisplay" style="font-weight:600; color:#374151;">Rs. 0.00</span>
                 </div>
+                {{-- Tier discount indicator --}}
+                <div id="tierDiscountBadge" style="display:none; align-items:center; gap:5px; font-size:10px; font-weight:600; color:#1d4ed8; background:#eff6ff; border:1px solid #bfdbfe; border-radius:5px; padding:3px 8px;">
+                    <i class="fas fa-tag" style="font-size:9px;"></i>
+                    <span></span>
+                </div>
+
                 <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
                     <span style="color:#64748b;">Discount</span>
                     <div style="display:flex; gap:4px;">
@@ -506,6 +541,52 @@
         renderTables();
     }
 
+    // ═══════════════════════════════════════════
+    // LIVE TABLE TIMERS
+    // ═══════════════════════════════════════════
+
+    let _tableTimerInterval = null;
+
+    function formatElapsed(ms) {
+        const totalSec = Math.floor(ms / 1000);
+        const h   = Math.floor(totalSec / 3600);
+        const m   = Math.floor((totalSec % 3600) / 60);
+        const sec = totalSec % 60;
+        if (h > 0) return h + 'h ' + String(m).padStart(2, '0') + 'm';
+        if (m > 0) return m + 'm ' + String(sec).padStart(2, '0') + 's';
+        return sec + 's';
+    }
+
+    function updateTableTimers() {
+        const now = Date.now();
+        document.querySelectorAll('.table-timer').forEach(function (el) {
+            const at = new Date(el.dataset.occupiedAt).getTime();
+            if (isNaN(at)) return;
+            const ms    = now - at;
+            const span  = el.querySelector('.elapsed-text');
+            const badge = el.querySelector('.elapsed-badge');
+            if (span)  span.textContent = formatElapsed(ms);
+            if (badge) {
+                if (ms > 7200000) {        // > 2 h → solid red
+                    badge.style.background = '#dc2626';
+                    badge.style.color      = '#fff';
+                } else if (ms > 3600000) { // 1–2 h → solid amber
+                    badge.style.background = '#f59e0b';
+                    badge.style.color      = '#fff';
+                } else {                   // < 1 h → dark translucent (safe on any card colour)
+                    badge.style.background = 'rgba(0,0,0,0.25)';
+                    badge.style.color      = '#fff';
+                }
+            }
+        });
+    }
+
+    function startTableTimers() {
+        clearInterval(_tableTimerInterval);
+        updateTableTimers();                              // fire immediately
+        _tableTimerInterval = setInterval(updateTableTimers, 1000); // then every second
+    }
+
     function renderTables() {
         const container = document.getElementById('tablesContainer');
         const filtered  = tableFilter === 'all'
@@ -518,6 +599,7 @@
         }
 
         container.innerHTML = filtered.map(function(table) {
+
             const isOccupied = table.status === 'occupied' || table.status === 'reserved';
             const isSelected = currentTable && currentTable.id === table.id;
 
@@ -531,8 +613,14 @@
 
             let timeLabel = '';
             if (table.occupied_at) {
-                const t = new Date(table.occupied_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-                timeLabel = '<div style="font-size:10px; color:#94a3b8; margin-top:2px;"><i class="fas fa-clock" style="font-size:9px;"></i> ' + t + '</div>';
+                timeLabel = '<div class="table-timer" data-occupied-at="' + table.occupied_at + '" style="margin-top:5px;">'
+                    + '<span class="elapsed-badge" style="display:inline-flex;align-items:center;gap:3px;'
+                    + 'font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;'
+                    + 'background:rgba(0,0,0,0.18);color:#fff;letter-spacing:0.01em;">'
+                    + '<i class="fas fa-clock" style="font-size:8px;"></i>'
+                    + '<span class="elapsed-text">—</span>'
+                    + '</span>'
+                    + '</div>';
             }
 
             let actionBar = '';
@@ -560,6 +648,8 @@
                 + itemBadge + timeLabel + actionBar
                 + '</div>';
         }).join('');
+
+        startTableTimers();
     }
 
     function expandTableCard(tableId, event) {
@@ -961,8 +1051,20 @@
         document.getElementById('activeOrderText').textContent = 'Adding to Table ' + currentTable.table_number;
 
         if (currentOrder) {
-            document.getElementById('customerName').value  = currentOrder.customer_name  || '';
-            document.getElementById('customerPhone').value = currentOrder.customer_phone || '';
+            if (currentOrder.customer_id) {
+                const tier = currentOrder.customer?.tier || 'New';
+                selectCustomer(
+                    currentOrder.customer_id,
+                    currentOrder.customer_name  || '',
+                    currentOrder.customer_phone || '',
+                    tier
+                );
+            } else {
+                document.getElementById('customerName').value  = currentOrder.customer_name  || '';
+                document.getElementById('customerPhone').value = currentOrder.customer_phone || '';
+                document.getElementById('selectedCustomerChip').style.display = 'none';
+                document.getElementById('customerSearchInputs').style.display = 'grid';
+            }
         }
     }
 
@@ -1067,21 +1169,153 @@
     }
 
     // ═══════════════════════════════════════════
-    // CUSTOMER INFO
+    // CUSTOMER INFO — search autocomplete
     // ═══════════════════════════════════════════
+
+    let _customerSearchTimer = null;
+    let _selectedCustomerId  = null;
+
+    // Tier discount map injected from PHP — e.g. { VIP: 15, Moderate: 10, ... }
+    const TIER_DISCOUNTS = @json($tierDiscounts ?? []);
+
+    const TIER_COLORS = {
+        'VIP':      { bg: '#fef9c3', color: '#854d0e', border: '#fde047' },
+        'Moderate': { bg: '#dbeafe', color: '#1e40af', border: '#93c5fd' },
+        'Medium':   { bg: '#f3e8ff', color: '#6b21a8', border: '#c084fc' },
+        'Small':    { bg: '#f1f5f9', color: '#475569', border: '#94a3b8' },
+        'New':      { bg: '#dcfce7', color: '#166534', border: '#86efac' },
+    };
+
+    function onCustomerInput(field) {
+        clearTimeout(_customerSearchTimer);
+        const q = document.getElementById(field === 'name' ? 'customerName' : 'customerPhone').value.trim();
+        if (q.length < 1) { hideCustomerDropdown(); return; }
+        _customerSearchTimer = setTimeout(() => searchCustomers(q), 220);
+    }
+
+    async function searchCustomers(q) {
+        const res  = await fetch('{{ route("customers.search") }}?q=' + encodeURIComponent(q), {
+            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' }
+        });
+        const list = await res.json();
+        renderCustomerDropdown(list);
+    }
+
+    function renderCustomerDropdown(customers) {
+        const dd = document.getElementById('customerDropdown');
+        if (!customers.length) { hideCustomerDropdown(); return; }
+
+        dd.innerHTML = customers.map(c => {
+            const tier   = c.tier || 'New';
+            const tc     = TIER_COLORS[tier] || TIER_COLORS['New'];
+            const title  = c.title ? c.title + ' ' : '';
+            return `<div class="cust-result" onclick="selectCustomer(${c.id}, '${escapeHtml(title + c.name)}', '${escapeHtml(c.phone_number)}', '${tier}')"
+                        style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; cursor:pointer; border-bottom:1px solid #f1f5f9; font-size:11px;"
+                        onmouseenter="this.style.background='#eff6ff'" onmouseleave="this.style.background='#fff'">
+                <div>
+                    <div style="font-weight:600; color:#1e293b;">${escapeHtml(title + c.name)}</div>
+                    <div style="color:#64748b; font-size:10px;">${escapeHtml(c.phone_number)}</div>
+                </div>
+                <span style="font-size:9px; font-weight:700; padding:2px 7px; border-radius:99px;
+                             background:${tc.bg}; color:${tc.color}; border:1px solid ${tc.border};">${tier}</span>
+            </div>`;
+        }).join('');
+
+        dd.style.display = 'block';
+    }
+
+    function hideCustomerDropdown() {
+        document.getElementById('customerDropdown').style.display = 'none';
+    }
+
+    function selectCustomer(id, name, phone, tier) {
+        _selectedCustomerId = id;
+
+        // Fill inputs (used as fallback / display value)
+        document.getElementById('customerName').value  = name;
+        document.getElementById('customerPhone').value = phone;
+
+        // Show chip
+        const tc = TIER_COLORS[tier] || TIER_COLORS['New'];
+        document.getElementById('chipName').textContent  = name;
+        document.getElementById('chipPhone').textContent = phone;
+        const chipTier = document.getElementById('chipTier');
+        chipTier.textContent      = tier;
+        chipTier.style.background  = tc.bg;
+        chipTier.style.color       = tc.color;
+        chipTier.style.borderColor = tc.border;
+
+        document.getElementById('selectedCustomerChip').style.display = 'flex';
+        document.getElementById('customerSearchInputs').style.display = 'none';
+        hideCustomerDropdown();
+
+        // Auto-apply tier discount
+        applyTierDiscount(tier);
+
+        saveCustomerInfo();
+    }
+
+    function applyTierDiscount(tier) {
+        const pct = TIER_DISCOUNTS[tier] ?? 0;
+        const discountTypeEl  = document.getElementById('discountType');
+        const discountValueEl = document.getElementById('discountValue');
+        const discountBadge   = document.getElementById('tierDiscountBadge');
+
+        if (pct > 0) {
+            discountTypeEl.value  = 'percentage';
+            discountValueEl.value = pct;
+            if (discountBadge) {
+                discountBadge.textContent = tier + ' discount: ' + pct + '% applied';
+                discountBadge.style.display = 'flex';
+            }
+        } else {
+            // Tier has 0% — clear any tier-applied discount but don't wipe a manual one
+            if (discountBadge && discountBadge.style.display !== 'none') {
+                discountTypeEl.value  = '';
+                discountValueEl.value = '';
+                discountBadge.style.display = 'none';
+            }
+        }
+        recalcTotal();
+    }
+
+    function clearSelectedCustomer() {
+        _selectedCustomerId = null;
+        document.getElementById('selectedCustomerChip').style.display = 'none';
+        document.getElementById('customerSearchInputs').style.display = 'grid';
+        document.getElementById('customerName').value  = '';
+        document.getElementById('customerPhone').value = '';
+
+        // Remove the tier discount that was auto-applied
+        const discountBadge = document.getElementById('tierDiscountBadge');
+        if (discountBadge && discountBadge.style.display !== 'none') {
+            document.getElementById('discountType').value  = '';
+            document.getElementById('discountValue').value = '';
+            discountBadge.style.display = 'none';
+            recalcTotal();
+        }
+
+        saveCustomerInfo();
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#customerInfoSection')) hideCustomerDropdown();
+    });
 
     async function saveCustomerInfo() {
         if (!currentOrder || !currentOrder.id) return;
         const name  = document.getElementById('customerName').value.trim();
         const phone = document.getElementById('customerPhone').value.trim();
-        if (currentOrder.customer_name === name && currentOrder.customer_phone === phone) return;
+        if (currentOrder.customer_name === name && currentOrder.customer_phone === phone && currentOrder.customer_id === _selectedCustomerId) return;
         await fetch('{{ route("pos.order.customer", ":id") }}'.replace(':id', currentOrder.id), {
             method: 'POST',
             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
-            body: JSON.stringify({ customer_name: name, customer_phone: phone })
+            body: JSON.stringify({ customer_id: _selectedCustomerId, customer_name: name, customer_phone: phone })
         });
         currentOrder.customer_name  = name;
         currentOrder.customer_phone = phone;
+        currentOrder.customer_id    = _selectedCustomerId;
     }
 
     // ═══════════════════════════════════════════
@@ -1414,6 +1648,9 @@
         document.getElementById('confirmLiveBillBtn').style.display     = 'none';
         document.getElementById('customerName').value   = '';
         document.getElementById('customerPhone').value  = '';
+        _selectedCustomerId = null;
+        document.getElementById('selectedCustomerChip').style.display = 'none';
+        document.getElementById('customerSearchInputs').style.display = 'grid';
         document.getElementById('discountType').value   = '';
         document.getElementById('discountValue').value  = '';
         document.getElementById('amountPaid').value     = '';
