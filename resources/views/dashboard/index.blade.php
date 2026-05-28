@@ -163,14 +163,19 @@
 
             <!-- Modules -->
             <div>
+                @php
+                    $sortedModules = $modules
+                        ->sortByDesc(fn($module) => $module->route === 'pos.index')
+                        ->values();
+                @endphp
                 <div class="flex items-center justify-between mb-5">
                     <h2 class="text-xl font-bold text-gray-900">Available Modules</h2>
-                    <span class="text-xs text-gray-400 font-medium">{{ $modules->count() }} modules</span>
+                    <span class="text-xs text-gray-400 font-medium">{{ $sortedModules->count() }} modules</span>
                 </div>
 
-                @if($modules->count() > 0)
+                @if($sortedModules->count() > 0)
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                        @foreach($modules as $module)
+                        @foreach($sortedModules as $module)
                             <a href="{{ route($module->route) }}" class="module-card p-6">
                                 <div class="flex items-start justify-between mb-4">
                                     <div class="module-icon">
@@ -195,7 +200,7 @@
             <div class="lg:hidden mt-8 pb-8">
                 <h2 class="text-base font-bold text-gray-900 mb-4">Quick Access</h2>
                 <div class="grid grid-cols-3 gap-3">
-                    @foreach($modules as $module)
+                    @foreach($sortedModules as $module)
                         <a href="{{ route($module->route) }}" class="bg-white p-3 rounded-xl text-center border border-gray-100 hover:border-red-400 transition-colors">
                             <i class="fas fa-{{ $module->icon }} text-red-500 text-xl mb-1 block"></i>
                             <p class="text-xs font-semibold text-gray-700">{{ substr($module->name, 0, 10) }}</p>
@@ -208,5 +213,19 @@
     </div>
 
     
-</body>
+    <script>
+        document.addEventListener('focusin', function (event) {
+            const target = event.target;
+            if (!(target instanceof HTMLInputElement)) return;
+            if (target.type !== 'number' && !target.dataset.clearZero) return;
+            if (target.dataset.clearedZero === 'true') return;
+            const value = (target.value || '').trim();
+            if (value === '') return;
+            if (!Number.isFinite(Number(value))) return;
+            if (Number(value) !== 0) return;
+            target.value = '';
+            target.dataset.clearedZero = 'true';
+        });
+    </script>
+    </body>
 </html>

@@ -42,6 +42,20 @@
         </div>
     </div>
 
+    <script>
+        document.addEventListener('focusin', function (event) {
+            const target = event.target;
+            if (!(target instanceof HTMLInputElement)) return;
+            if (target.type !== 'number' && !target.dataset.clearZero) return;
+            if (target.dataset.clearedZero === 'true') return;
+            const value = (target.value || '').trim();
+            if (value === '') return;
+            if (!Number.isFinite(Number(value))) return;
+            if (Number(value) !== 0) return;
+            target.value = '';
+            target.dataset.clearedZero = 'true';
+        });
+    </script>
     @yield('scripts')
 </body>
 </html>
