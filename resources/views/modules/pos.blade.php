@@ -666,20 +666,33 @@
         try {
             showLoading();
             const res   = await fetch('{{ route("pos.order.show", ":id") }}'.replace(':id', orderId));
-            if (!res.ok) { toast('Failed to load order', 'error'); hideLoading(); return; }
-            const order = await res.json();
-            currentOrder = order;
-            currentTable = allTables.find(function(t) { return t.id === order.table_id; }) || null;
-            // Collapse all expanded cards, mark selected
-            document.querySelectorAll('.table-card.expanded').forEach(function(c) { c.classList.remove('expanded'); });
-            document.querySelectorAll('.table-card.selected').forEach(function(c) { c.classList.remove('selected'); });
+            if (!res.ok) { 
+                toast('Failed to load order', 'error'); 
+                hideLoading(); 
+                return; 
+            }
+            
+            currentOrder = await res.json();
+            currentTable = allTables.find(t => t.id === currentOrder.table_id) || null;
+
+            // Reset discount first, then render will re-apply if customer exists
+            document.getElementById('discountType').value = '';
+            document.getElementById('discountValue').value = '';
+            const discountBadge = document.getElementById('tierDiscountBadge');
+            if (discountBadge) discountBadge.style.display = 'none';
+
+            // Collapse cards and select current
+            document.querySelectorAll('.table-card.expanded').forEach(c => c.classList.remove('expanded'));
+            document.querySelectorAll('.table-card.selected').forEach(c => c.classList.remove('selected'));
             if (currentTable) {
                 const card = document.getElementById('tc-' + currentTable.id);
                 if (card) card.classList.add('selected');
             }
+
             renderTableView();
             renderBill();
             hideLoading();
+            
         } catch (e) {
             console.error('View order error:', e);
             hideLoading();
@@ -726,12 +739,24 @@
         }
         const data = await res.json();
         currentOrder = {
-            id: data.order_id, order_number: data.order_number,
-            items: [], subtotal: 0, total: 0,
-            discount_amount: 0, live_bill_enabled: false,
-            customer_name: null, customer_phone: null,
+            id: data.order_id, 
+            order_number: data.order_number,
+            items: [], 
+            subtotal: 0, 
+            total: 0,
+            discount_amount: 0, 
+            live_bill_enabled: false,
+            customer_name: null, 
+            customer_phone: null,
             table_id: tableId,
         };
+
+        // === IMPORTANT: Reset discount when starting fresh order ===
+        document.getElementById('discountType').value = '';
+        document.getElementById('discountValue').value = '';
+        const discountBadge = document.getElementById('tierDiscountBadge');
+        if (discountBadge) discountBadge.style.display = 'none';
+
         renderTableView();
         renderBill();
         await loadTables();
@@ -1042,41 +1067,54 @@
     //     }
 
     //     if (!currentTable && currentOrder) {
+    //         // Takeaway / Delivery / VIP Room
     //         const displayType = currentOrder.order_type ? 
     //                             currentOrder.order_type.charAt(0).toUpperCase() + currentOrder.order_type.slice(1) : 
     //                             'Takeaway';
-                                
     //         document.getElementById('selectedTableLabel').innerHTML =
     //             '🛍 <strong>' + displayType + ' Order</strong> — ' + (currentOrder.order_number || '—');
     //         document.getElementById('customerInfoToggle').style.display = 'flex';
     //         document.getElementById('activeOrderBanner').style.display   = 'flex';
     //         document.getElementById('activeOrderText').textContent = displayType + ' — adding items';
-    //         return;
+    //     } else {
+    //         // Dine-in Table
+    //         const sectionLabel = currentTable.section === 'vip' ? '🟣 VIP' : '🍽';
+    //         document.getElementById('selectedTableLabel').innerHTML =
+    //             sectionLabel + ' <strong>Table ' + currentTable.table_number + '</strong> — ' + escapeHtml(currentTable.name);
+    //         document.getElementById('customerInfoToggle').style.display = 'flex';
+    //         document.getElementById('activeOrderBanner').style.display   = 'flex';
+    //         document.getElementById('activeOrderText').textContent = 'Adding to Table ' + currentTable.table_number;
     //     }
 
-    //     const sectionLabel = currentTable.section === 'vip' ? '🟣 VIP' : '🍽';
-    //     document.getElementById('selectedTableLabel').innerHTML =
-    //         sectionLabel + ' <strong>Table ' + currentTable.table_number + '</strong> — ' + escapeHtml(currentTable.name);
-    //     document.getElementById('customerInfoToggle').style.display = 'flex';
-    //     document.getElementById('activeOrderBanner').style.display   = 'flex';
-    //     document.getElementById('activeOrderText').textContent = 'Adding to Table ' + currentTable.table_number;
-
+    //     // ==================== CUSTOMER HANDLING ====================
     //     if (currentOrder) {
-    //         if (currentOrder.customer_id) {
-    //             const tier = currentOrder.customer?.tier || 'New';
+    //         const hasCustomer = currentOrder.customer_id || 
+    //                         currentOrder.customer_name || 
+    //                         currentOrder.customer_phone;
+
+    //         if (hasCustomer) {
+    //             const tier = currentOrder.customer?.tier || 
+    //                         currentOrder.customer_tier || 
+    //                         currentOrder.tier || 
+    //                         'New';
+
     //             selectCustomer(
     //                 currentOrder.customer_id,
-    //                 currentOrder.customer_name  || '',
+    //                 currentOrder.customer_name || '',
     //                 currentOrder.customer_phone || '',
     //                 tier
     //             );
     //         } else {
-    //             document.getElementById('customerName').value  = currentOrder.customer_name  || '';
-    //             document.getElementById('customerPhone').value = currentOrder.customer_phone || '';
+    //             // No customer attached
     //             document.getElementById('selectedCustomerChip').style.display = 'none';
     //             document.getElementById('customerSearchInputs').style.display = 'grid';
+    //             document.getElementById('customerName').value  = '';
+    //             document.getElementById('customerPhone').value = '';
     //         }
     //     }
+
+    //     // Force recalculation after render
+    //     setTimeout(recalcTotal, 100);
     // }
 
     function renderTableView() {
@@ -1088,46 +1126,38 @@
             return;
         }
 
+        // Table / Order Type Header
         if (!currentTable && currentOrder) {
-            // Takeaway / Delivery / VIP Room
             const displayType = currentOrder.order_type ? 
                                 currentOrder.order_type.charAt(0).toUpperCase() + currentOrder.order_type.slice(1) : 
                                 'Takeaway';
             document.getElementById('selectedTableLabel').innerHTML =
                 '🛍 <strong>' + displayType + ' Order</strong> — ' + (currentOrder.order_number || '—');
-            document.getElementById('customerInfoToggle').style.display = 'flex';
-            document.getElementById('activeOrderBanner').style.display   = 'flex';
             document.getElementById('activeOrderText').textContent = displayType + ' — adding items';
-        } else {
-            // Dine-in Table
+        } else if (currentTable) {
             const sectionLabel = currentTable.section === 'vip' ? '🟣 VIP' : '🍽';
             document.getElementById('selectedTableLabel').innerHTML =
                 sectionLabel + ' <strong>Table ' + currentTable.table_number + '</strong> — ' + escapeHtml(currentTable.name);
-            document.getElementById('customerInfoToggle').style.display = 'flex';
-            document.getElementById('activeOrderBanner').style.display   = 'flex';
             document.getElementById('activeOrderText').textContent = 'Adding to Table ' + currentTable.table_number;
         }
 
-        // ==================== CUSTOMER HANDLING ====================
+        document.getElementById('customerInfoToggle').style.display = 'flex';
+        document.getElementById('activeOrderBanner').style.display   = 'flex';
+
+        // ==================== RESTORE CUSTOMER (Critical Fix) ====================
         if (currentOrder) {
-            const hasCustomer = currentOrder.customer_id || 
-                            currentOrder.customer_name || 
-                            currentOrder.customer_phone;
+            const customerId   = currentOrder.customer_id || currentOrder.customer?.id;
+            const customerName = currentOrder.customer_name || currentOrder.customer?.name || '';
+            const customerPhone = currentOrder.customer_phone || currentOrder.customer?.phone_number || '';
+            const tier         = currentOrder.customer?.tier || 
+                                currentOrder.customer_tier || 
+                                currentOrder.tier || 
+                                'New';
 
-            if (hasCustomer) {
-                const tier = currentOrder.customer?.tier || 
-                            currentOrder.customer_tier || 
-                            currentOrder.tier || 
-                            'New';
-
-                selectCustomer(
-                    currentOrder.customer_id,
-                    currentOrder.customer_name || '',
-                    currentOrder.customer_phone || '',
-                    tier
-                );
+            if (customerId || customerName || customerPhone) {
+                selectCustomer(customerId, customerName, customerPhone, tier);
             } else {
-                // No customer attached
+                // No customer
                 document.getElementById('selectedCustomerChip').style.display = 'none';
                 document.getElementById('customerSearchInputs').style.display = 'grid';
                 document.getElementById('customerName').value  = '';
@@ -1135,8 +1165,10 @@
             }
         }
 
-        // Force recalculation after render
-        setTimeout(recalcTotal, 100);
+        // Recalculate discount after customer is restored
+        setTimeout(() => {
+            recalcTotal();
+        }, 150);
     }
 
     function renderBill() {
@@ -1335,38 +1367,53 @@
         if (pct > 0) {
             discountTypeEl.value  = 'percentage';
             discountValueEl.value = pct;
+
             if (discountBadge) {
-                discountBadge.textContent = tier + ' discount: ' + pct + '% applied';
+                discountBadge.innerHTML = `
+                    <i class="fas fa-tag" style="font-size:9px;"></i>
+                    <span>${tier} discount: ${pct}% applied</span>
+                `;
                 discountBadge.style.display = 'flex';
             }
         } else {
-            // Tier has 0% — clear any tier-applied discount but don't wipe a manual one
-            if (discountBadge && discountBadge.style.display !== 'none') {
-                discountTypeEl.value  = '';
-                discountValueEl.value = '';
-                discountBadge.style.display = 'none';
-            }
+            // Clear discount if tier has 0%
+            discountTypeEl.value  = '';
+            discountValueEl.value = '';
+            if (discountBadge) discountBadge.style.display = 'none';
         }
+
         recalcTotal();
     }
 
     function clearSelectedCustomer() {
         _selectedCustomerId = null;
+
+        // Reset UI
         document.getElementById('selectedCustomerChip').style.display = 'none';
         document.getElementById('customerSearchInputs').style.display = 'grid';
         document.getElementById('customerName').value  = '';
         document.getElementById('customerPhone').value = '';
 
-        // Remove the tier discount that was auto-applied
-        const discountBadge = document.getElementById('tierDiscountBadge');
-        if (discountBadge && discountBadge.style.display !== 'none') {
-            document.getElementById('discountType').value  = '';
-            document.getElementById('discountValue').value = '';
+        // === FORCE REMOVE TIER DISCOUNT ===
+        const discountTypeEl  = document.getElementById('discountType');
+        const discountValueEl = document.getElementById('discountValue');
+        const discountBadge   = document.getElementById('tierDiscountBadge');
+
+        // Clear any tier-based discount
+        discountTypeEl.value  = '';
+        discountValueEl.value = '';
+
+        if (discountBadge) {
             discountBadge.style.display = 'none';
-            recalcTotal();
         }
 
+        // Recalculate total immediately
+        recalcTotal();
+
+        // Save to backend (customer removed)
         saveCustomerInfo();
+
+        toast('Customer removed', 'success');
     }
 
     // Close dropdown when clicking outside
@@ -1412,9 +1459,14 @@
 
     function recalcTotal() {
         if (!currentOrder) return;
+
         const subtotal = currentOrder.subtotal || 0;
         const discount = calcDiscount(subtotal);
-        document.getElementById('totalDisplay').textContent = 'Rs. ' + Math.max(0, subtotal - discount).toFixed(2);
+        const total    = Math.max(0, subtotal - discount);
+
+        document.getElementById('subtotalDisplay').textContent = 'Rs. ' + subtotal.toFixed(2);
+        document.getElementById('totalDisplay').textContent    = 'Rs. ' + total.toFixed(2);
+
         updateChange();
     }
 
@@ -1709,6 +1761,12 @@
         currentTable = null;
         selectedPaymentMethod = 'cash';
 
+        // === CLEAR DISCOUNT FIELDS ===
+        document.getElementById('discountType').value = '';
+        document.getElementById('discountValue').value = '';
+        const discountBadge = document.getElementById('tierDiscountBadge');
+        if (discountBadge) discountBadge.style.display = 'none';
+
         document.getElementById('billItems').innerHTML = '<div style="text-align:center; padding:48px 0; color:#cbd5e1;"><i class="fas fa-utensils" style="font-size:36px; margin-bottom:12px; display:block;"></i><p style="font-size:13px; margin:0;">Select a table or create takeaway order</p></div>';
         document.getElementById('selectedTableLabel').innerHTML = '<i class="fas fa-arrow-left" style="font-size:11px; margin-right:4px;"></i>Select a table or create takeaway order';
         document.getElementById('customerInfoToggle').style.display     = 'none';
@@ -1717,27 +1775,26 @@
         document.getElementById('paymentSection').style.display         = 'none';
         document.getElementById('waiterPayRow').style.display           = 'none';
         document.getElementById('holdBtn').style.display                = 'none';
-        const liveBillBtn = document.getElementById('confirmLiveBillBtn');
-        if (liveBillBtn) liveBillBtn.style.display = 'none';
+        
         document.getElementById('customerName').value   = '';
         document.getElementById('customerPhone').value  = '';
         _selectedCustomerId = null;
         document.getElementById('selectedCustomerChip').style.display = 'none';
         document.getElementById('customerSearchInputs').style.display = 'grid';
-        document.getElementById('discountType').value   = '';
-        document.getElementById('discountValue').value  = '';
+        
         document.getElementById('amountPaid').value     = '';
         document.getElementById('changeDisplay').textContent  = 'Rs. 0.00';
         document.getElementById('subtotalDisplay').textContent = 'Rs. 0.00';
         document.getElementById('totalDisplay').textContent    = 'Rs. 0.00';
+
         document.querySelectorAll('.pay-method-btn').forEach(function(b) {
             b.classList.toggle('active', b.dataset.method === 'cash');
         });
         document.getElementById('cashSection').style.display = 'flex';
-        document.querySelectorAll('.table-card.expanded').forEach(function(c) { c.classList.remove('expanded'); });
-        document.querySelectorAll('.table-card.selected').forEach(function(c) { c.classList.remove('selected'); });
-    }
 
+        document.querySelectorAll('.table-card.expanded').forEach(c => c.classList.remove('expanded'));
+        document.querySelectorAll('.table-card.selected').forEach(c => c.classList.remove('selected'));
+    }
     function printReceipt(html) {
         const w = window.open('', '', 'width=400,height=700,toolbar=0,menubar=0,scrollbars=1');
         w.document.write('<!DOCTYPE html><html><head><style>body{font-family:\'Courier New\',monospace;width:80mm;padding:10px;margin:0;font-size:12px;}</style></head><body>' + html + '</body></html>');

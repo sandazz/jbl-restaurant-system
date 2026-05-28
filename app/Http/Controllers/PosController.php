@@ -131,6 +131,7 @@ class PosController extends Controller
             'status' => $order->status,
             'customer_name' => $order->customer_name,
             'customer_phone' => $order->customer_phone,
+            'customer' => $order->customer,
             'live_bill_enabled' => $order->live_bill_enabled,
             'waiter_bill_printed_at' => $order->waiter_bill_printed_at,
             'subtotal' => (float) $order->subtotal,
