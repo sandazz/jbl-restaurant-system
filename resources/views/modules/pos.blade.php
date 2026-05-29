@@ -176,6 +176,29 @@
             #printArea { display: block !important; }
         }
         #printArea { display: none; }
+
+        /* ── Receipt classes — scoped to #billContent so modal renders correctly ── */
+        #billContent { font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #000; }
+        #billContent .center  { text-align: center; }
+        #billContent .right   { text-align: right; }
+        #billContent .bold    { font-weight: bold; }
+        #billContent .lg      { font-size: 14px; }
+        #billContent .xl      { font-size: 17px; }
+        #billContent .sm      { font-size: 10px; }
+        #billContent .mt2     { margin-top: 2px; }
+        #billContent .mt4     { margin-top: 5px; }
+        #billContent .mt8     { margin-top: 10px; }
+        #billContent .mb4     { margin-bottom: 5px; }
+        #billContent .mb8     { margin-bottom: 10px; }
+        #billContent .divider-solid  { border-top: 1px solid #000; margin: 6px 0; }
+        #billContent .divider-dashed { border-top: 1px dashed #888; margin: 5px 0; }
+        #billContent .divider-double { border-top: 3px double #000; margin: 6px 0; }
+        #billContent .row            { display: flex; justify-content: space-between; align-items: flex-start; margin: 2px 0; }
+        #billContent .row .label     { flex: 1; }
+        #billContent .row .value     { white-space: nowrap; padding-left: 8px; }
+        #billContent .item-name      { flex: 1; word-break: break-word; }
+        #billContent .item-qty       { width: 28px; text-align: center; flex-shrink: 0; }
+        #billContent .item-amt       { width: 70px; text-align: right; flex-shrink: 0; }
     </style>
 </head>
 <body>
@@ -1628,29 +1651,23 @@
 
     function showPaidBill(d) {
         const methodLabel = { cash:'Cash', card:'Card', bank_transfer:'Bank Transfer', mixed:'Mixed' };
-        const itemRows = d.items.map(function(i) {
-            return '<div style="display:flex; justify-content:space-between; font-size:12px; margin:5px 0;">'
-                + '<span>' + escapeHtml(i.product_name) + ' × ' + i.quantity + '</span>'
-                + '<span>Rs. ' + i.subtotal.toFixed(2) + '</span></div>';
-        }).join('');
 
-        const html = '<div style="text-align:center; border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:12px;">'
-            + '<div style="font-weight:900; font-size:15px; letter-spacing:1px; color:#000;">RESTAURANT BYOB</div>'
-            + '<div style="font-size:11px; margin-top:3px; color:#000;">Order: ' + d.order_number + '</div>'
-            + '<div style="font-size:12px; font-weight:700; color:#000;">Table ' + d.table_number + (d.table_name ? ' — ' + escapeHtml(d.table_name) : '') + '</div>'
-            + (d.customer_name  ? '<div style="font-size:11px; color:#000;">Customer: ' + escapeHtml(d.customer_name) + '</div>' : '')
-            + (d.customer_phone ? '<div style="font-size:11px; color:#000;">Phone: ' + d.customer_phone + '</div>' : '')
-            + '<div style="font-size:10px; color:#000;">' + new Date().toLocaleString() + '</div></div>'
-            + itemRows
-            + '<div style="border-top:2px solid #000; margin-top:10px; padding-top:10px;">'
-            + '<div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:3px; color:#000;"><span>Subtotal</span><span>Rs. ' + d.subtotal.toFixed(2) + '</span></div>'
-            + (d.discount_amount > 0 ? '<div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:3px; color:#000;"><span>Discount</span><span>-Rs. ' + d.discount_amount.toFixed(2) + '</span></div>' : '')
-            + '<div style="display:flex; justify-content:space-between; font-weight:900; font-size:14px; margin-top:5px; color:#000;"><span>Total</span><span>Rs. ' + d.total.toFixed(2) + '</span></div>'
-            + '<div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px; color:#000;"><span>Paid (' + (methodLabel[d.payment_method] || d.payment_method) + ')</span><span>Rs. ' + d.amount_paid.toFixed(2) + '</span></div>'
-            + (d.change_amount > 0 ? '<div style="display:flex; justify-content:space-between; font-size:12px; color:#000;"><span>Change</span><span>Rs. ' + d.change_amount.toFixed(2) + '</span></div>' : '')
-            + '</div>'
-            + '<div style="text-align:center; margin-top:14px; border:2px solid #16a34a; border-radius:6px; padding:7px; font-weight:900; font-size:15px; color:#16a34a; letter-spacing:2px;">✓ PAID ✓</div>'
-            + '<div style="text-align:center; font-size:10px; margin-top:10px; color:#000;">Thank you for dining with us!</div>';
+        const html = rcptHeader('RECEIPT')
+            + rcptMeta([
+                ['Order',   d.order_number],
+                ['Table',   'T-' + d.table_number + (d.table_name ? ' ' + d.table_name : '')],
+                ['Date',    new Date().toLocaleString()],
+            ])
+            + (d.customer_name  ? '<div class="row sm mt4"><span class="label">Customer</span><span class="value">' + escapeHtml(d.customer_name) + '</span></div>' : '')
+            + (d.customer_phone ? '<div class="row sm"><span class="label">Phone</span><span class="value">' + escapeHtml(d.customer_phone) + '</span></div>' : '')
+            + rcptItemHeader()
+            + rcptItemRows(d.items)
+            + rcptTotals(d.subtotal, d.discount_amount, d.total)
+            + '<div class="row mt4"><span class="label">Paid (' + (methodLabel[d.payment_method] || d.payment_method) + ')</span><span class="value bold">Rs.' + d.amount_paid.toFixed(2) + '</span></div>'
+            + (d.change_amount > 0 ? '<div class="row"><span class="label">Change</span><span class="value">Rs.' + d.change_amount.toFixed(2) + '</span></div>' : '')
+            + '<div class="divider-dashed mt8"></div>'
+            + '<div class="center sm mt4">Thank you for dining with us!</div>'
+            + '<div class="center sm mt2">We look forward to seeing you again.</div>';
 
         currentBillContent = html;
         document.getElementById('billContent').innerHTML = html;
@@ -1672,30 +1689,20 @@
         const data = await res.json();
         if (!data.success) { toast('Could not generate bill', 'error'); return; }
 
-        const itemRows = data.items.map(function(i) {
-            return '<div style="margin:6px 0; font-size:12px;">'
-                + '<div style="display:flex; justify-content:space-between;">'
-                + '<span style="font-weight:700;">' + escapeHtml(i.product_name) + '</span>'
-                + '<span>Rs. ' + i.subtotal.toFixed(2) + '</span></div>'
-                + '<div style="font-size:10px; color:#555; text-align:right;">' + i.quantity + ' × Rs. ' + i.unit_price.toFixed(2) + '</div>'
-                + (i.kitchen_notes ? '<div style="font-size:10px; color:#888; font-style:italic;">Note: ' + escapeHtml(i.kitchen_notes) + '</div>' : '')
-                + '</div>';
-        }).join('');
-
-        const html = '<div style="text-align:center; border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:12px;">'
-            + '<div style="font-weight:900; font-size:15px; color:#000;">RESTAURANT BYOB</div>'
-            + '<div style="font-size:14px; font-weight:800; margin:4px 0;">— WAITER BILL —</div>'
-            + '<div style="font-size:13px; font-weight:700; background:#000; color:#fff; padding:3px 12px; display:inline-block; border-radius:4px; margin:4px 0;">Table ' + data.table_number + '</div>'
-            + '<div style="font-size:11px; margin-top:4px; color:#000;">Order: ' + data.order_number + '</div>'
-            + (data.customer_name  ? '<div style="font-size:11px; color:#000;">Customer: ' + escapeHtml(data.customer_name) + '</div>' : '')
-            + (data.customer_phone ? '<div style="font-size:11px; color:#000;">Phone: ' + data.customer_phone + '</div>' : '')
-            + '<div style="font-size:10px; color:#000;">' + new Date().toLocaleString() + '</div></div>'
-            + itemRows
-            + '<div style="border-top:2px solid #000; margin-top:10px; padding-top:10px;">'
-            + '<div style="display:flex; justify-content:space-between; font-size:12px; color:#000;"><span>Subtotal</span><span>Rs. ' + data.subtotal.toFixed(2) + '</span></div>'
-            + '<div style="display:flex; justify-content:space-between; font-weight:900; font-size:14px; margin-top:5px; color:#000;"><span>Total</span><span>Rs. ' + data.total.toFixed(2) + '</span></div>'
-            + '</div>'
-            + '<div style="text-align:center; font-size:10px; margin-top:10px; color:#000; border-top:1px dashed #ccc; padding-top:8px;">This is not a payment receipt</div>';
+        const html = rcptHeader('BILL')
+            + rcptMeta([
+                ['Order', data.order_number],
+                ['Table', 'T-' + data.table_number + (data.table_name ? ' ' + data.table_name : '')],
+                ['Date',  new Date().toLocaleString()],
+            ])
+            + (data.customer_name  ? '<div class="row sm mt4"><span class="label">Customer</span><span class="value">' + escapeHtml(data.customer_name) + '</span></div>' : '')
+            + (data.customer_phone ? '<div class="row sm"><span class="label">Phone</span><span class="value">' + escapeHtml(data.customer_phone) + '</span></div>' : '')
+            + rcptItemHeader()
+            + rcptItemRows(data.items)
+            + rcptTotals(data.subtotal, data.discount_amount || 0, data.total)
+            + '<div class="divider-dashed mt8"></div>'
+            + '<div class="center sm bold">** NOT A PAYMENT RECEIPT **</div>'
+            + '<div class="center sm">Please pay at the counter</div>';
 
         printReceipt(html);
         toast('Waiter bill printed', 'success');
@@ -1746,19 +1753,29 @@
     }
 
     function buildKotHtml(data, tableNum) {
-        return '<div style="text-align:center; font-weight:900; font-size:16px; border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:10px; color:#000;">KITCHEN ORDER</div>'
-            + '<div style="font-size:13px; font-weight:800; color:#000;">Order: ' + data.order_number + '</div>'
-            + '<div style="font-size:14px; font-weight:900; margin:4px 0; color:#000;">Table ' + tableNum + '</div>'
-            + '<div style="font-size:10px; color:#000; margin-bottom:10px;">' + new Date().toLocaleString() + '</div>'
-            + '<div style="border-top:1px solid #000; padding-top:10px;">'
-            + data.items.map(function(i) {
-                return '<div style="display:flex; justify-content:space-between; font-size:13px; font-weight:700; margin:8px 0; border-bottom:1px dashed #000; padding-bottom:6px; color:#000;">'
-                    + '<span>' + escapeHtml(i.product_name) + '</span>'
-                    + '<span style="font-size:16px; font-weight:900;">×' + i.quantity + '</span>'
-                    + '</div>'
-                    + (i.kitchen_notes ? '<div style="font-size:11px; color:#000; margin-top:-4px; margin-bottom:6px;">Note: ' + escapeHtml(i.kitchen_notes) + '</div>' : '');
-            }).join('')
-            + '</div>';
+        const itemCount = data.items.reduce(function(s, i) { return s + i.quantity; }, 0);
+
+        const items = data.items.map(function(i) {
+            return '<div class="kot-item">'
+                + '<span class="kot-item-name">' + escapeHtml(i.product_name) + '</span>'
+                + '<span class="kot-item-qty">x' + i.quantity + '</span>'
+                + '</div>'
+                + (i.kitchen_notes
+                    ? '<div class="sm mb4" style="padding:2px 4px; background:#eee;">&#9658; ' + escapeHtml(i.kitchen_notes) + '</div>'
+                    : '');
+        }).join('');
+
+        return '<div class="center mb8">'
+            + '<div class="bold xl">KITCHEN ORDER</div>'
+            + '<div class="bold" style="font-size:13px; margin-top:4px; background:#000; color:#fff; padding:3px 10px; display:inline-block;">TABLE ' + tableNum + '</div>'
+            + '</div>'
+            + '<div class="divider-solid"></div>'
+            + '<div class="row sm mt4 mb4"><span class="label">Order:</span><span class="value bold">' + data.order_number + '</span></div>'
+            + '<div class="row sm mb4"><span class="label">Time:</span><span class="value">' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) + '</span></div>'
+            + '<div class="divider-double"></div>'
+            + items
+            + '<div class="divider-solid mt4"></div>'
+            + '<div class="center sm bold mt4">Total Items: ' + itemCount + '</div>';
     }
 
     function printKotContent() {
@@ -1902,13 +1919,115 @@
         document.querySelectorAll('.table-card.expanded').forEach(c => c.classList.remove('expanded'));
         document.querySelectorAll('.table-card.selected').forEach(c => c.classList.remove('selected'));
     }
+    // ─── shared print CSS injected into every receipt window ───────────────
+    const RECEIPT_CSS = `
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 11px;
+            color: #000;
+            background: #fff;
+            width: 80mm;
+            padding: 4mm 3mm 6mm;
+        }
+        @media print {
+            @page { size: 80mm auto; margin: 0; }
+            body  { padding: 2mm; }
+        }
+        .center  { text-align: center; }
+        .right   { text-align: right; }
+        .bold    { font-weight: bold; }
+        .lg      { font-size: 14px; }
+        .xl      { font-size: 18px; }
+        .sm      { font-size: 9px; }
+        .mt4     { margin-top: 4px; }
+        .mb4     { margin-bottom: 4px; }
+        .mt8     { margin-top: 8px; }
+        .mb8     { margin-bottom: 8px; }
+        .divider-solid  { border-top: 1px solid #000; margin: 6px 0; }
+        .divider-dashed { border-top: 1px dashed #000; margin: 5px 0; }
+        .divider-double { border-top: 3px double #000; margin: 6px 0; }
+        .row { display: flex; justify-content: space-between; align-items: flex-start; margin: 2px 0; }
+        .row .label { flex: 1; }
+        .row .value { white-space: nowrap; padding-left: 8px; }
+        .item-name  { flex: 1; word-break: break-word; }
+        .item-qty   { width: 28px; text-align: center; flex-shrink: 0; }
+        .item-amt   { width: 60px; text-align: right; flex-shrink: 0; }
+        .mt2  { margin-top: 2px; }
+        .mb8  { margin-bottom: 8px; }
+        .kot-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px dashed #000;
+        }
+        .kot-item-name { flex: 1; font-size: 14px; font-weight: 900; }
+        .kot-item-qty  { font-size: 22px; font-weight: 900; white-space: nowrap; padding-left: 8px; }
+    `;
+
     function printReceipt(html) {
-        const w = window.open('', '', 'width=400,height=700,toolbar=0,menubar=0,scrollbars=1');
-        w.document.write('<!DOCTYPE html><html><head><style>body{font-family:\'Courier New\',monospace;width:80mm;padding:10px;margin:0;font-size:12px;}</style></head><body>' + html + '</body></html>');
+        const w = window.open('', '_blank', 'width=380,height=680,toolbar=0,menubar=0,scrollbars=1');
+        if (!w) { toast('Allow popups to print receipts', 'error'); return; }
+        w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Print</title><style>' + RECEIPT_CSS + '</style></head><body>' + html + '</body></html>');
         w.document.close();
         w.focus();
-        w.print();
-        setTimeout(function() { w.close(); }, 1200);
+        setTimeout(function () { w.print(); setTimeout(function () { w.close(); }, 800); }, 350);
+    }
+
+    // ─── receipt building blocks ─────────────────────────────────────────────
+    function rcptHeader(title) {
+        return '<div class="center mb8">'
+            + '<div class="bold xl">BYOB Restaurant</div>'
+            + '<div class="sm mt4">Your favourite dining destination</div>'
+            + '<div class="sm">Tel: +94 XX XXX XXXX</div>'
+            + '<div class="divider-double mt8"></div>'
+            + '<div class="bold lg mt4">' + title + '</div>'
+            + '</div>';
+    }
+
+    function rcptMeta(lines) {
+        // lines: array of [label, value] pairs
+        return lines.map(function(l) {
+            return '<div class="row sm mt4"><span class="label">' + l[0] + '</span><span class="value">' + l[1] + '</span></div>';
+        }).join('');
+    }
+
+    function rcptItemHeader() {
+        return '<div class="divider-solid"></div>'
+            + '<div style="display:flex; font-size:9px; font-weight:bold; margin:2px 0;">'
+            + '<span class="item-name">ITEM</span>'
+            + '<span class="item-qty">QTY</span>'
+            + '<span class="item-amt">AMOUNT</span>'
+            + '</div>'
+            + '<div class="divider-dashed"></div>';
+    }
+
+    function rcptItemRows(items) {
+        return items.map(function(i) {
+            return '<div style="margin:3px 0;">'
+                + '<div style="display:flex; align-items:flex-start;">'
+                + '<span class="item-name bold">' + escapeHtml(i.product_name) + '</span>'
+                + '<span class="item-qty">' + i.quantity + '</span>'
+                + '<span class="item-amt">Rs.' + i.subtotal.toFixed(2) + '</span>'
+                + '</div>'
+                + '<div class="sm" style="padding-left:2px; color:#333;">'
+                + i.quantity + ' x Rs.' + i.unit_price.toFixed(2)
+                + (i.kitchen_notes ? ' &bull; <em>' + escapeHtml(i.kitchen_notes) + '</em>' : '')
+                + '</div>'
+                + '</div>';
+        }).join('');
+    }
+
+    function rcptTotals(subtotal, discountAmt, total) {
+        return '<div class="divider-solid"></div>'
+            + '<div class="row mt4"><span class="label">Subtotal</span><span class="value">Rs.' + subtotal.toFixed(2) + '</span></div>'
+            + (discountAmt > 0
+                ? '<div class="row"><span class="label">Discount</span><span class="value">-Rs.' + discountAmt.toFixed(2) + '</span></div>'
+                : '')
+            + '<div class="divider-double"></div>'
+            + '<div class="row bold lg"><span class="label">TOTAL</span><span class="value">Rs.' + total.toFixed(2) + '</span></div>'
+            + '<div class="divider-double"></div>';
     }
 
     function openModal(id)  { document.getElementById(id).classList.add('open'); }
