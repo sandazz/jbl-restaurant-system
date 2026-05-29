@@ -262,13 +262,6 @@
                            style="width:100%; padding:9px 12px 9px 36px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:13px; outline:none; background:#f8fafc;"
                            onfocus="this.style.borderColor='#dc2626'" onblur="this.style.borderColor='#e2e8f0'">
                 </div>
-                <select id="orderTypeSelect"
-                        style="padding:9px 12px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:13px; background:#f8fafc; color:#374151; outline:none; cursor:pointer;">
-                    <option value="dine_in">Dine In</option>
-                    <option value="takeaway">Takeaway</option>
-                    <option value="delivery">Delivery</option>
-                    <option value="vip_room">VIP Room</option>
-                </select>
             </div>
             <!-- Categories -->
             <div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:2px;" id="categoriesContainer">
@@ -426,16 +419,22 @@
                     </button>
                 </div>
                 <!-- Cash amount input -->
-                <div id="cashSection" style="display:flex; gap:6px;">
-                    <div style="flex:1;">
-                        <label style="font-size:9px; font-weight:600; color:#64748b; display:block; margin-bottom:2px;">Paid</label>
-                        <input type="number" id="amountPaid" placeholder="0.00" min="0" oninput="updateChange()"
-                               style="width:100%; font-size:11px; font-weight:700; border:1px solid #e2e8f0; border-radius:5px; padding:5px 6px; outline:none;"
-                               onfocus="this.style.borderColor='#dc2626'" onblur="this.style.borderColor='#e2e8f0'">
+                <div id="cashSection" style="display:flex; flex-direction:column; gap:4px;">
+                    <div style="display:flex; gap:6px;">
+                        <div style="flex:1;">
+                            <label style="font-size:9px; font-weight:600; color:#64748b; display:block; margin-bottom:2px;">Paid</label>
+                            <input type="number" id="amountPaid" placeholder="0.00" min="0" oninput="updateChange()"
+                                   style="width:100%; font-size:11px; font-weight:700; border:1.5px solid #e2e8f0; border-radius:5px; padding:5px 6px; outline:none; box-sizing:border-box;"
+                                   onfocus="this.style.borderColor='#dc2626'" onblur="this.style.borderColor=getAmountBorderColor()">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="font-size:9px; font-weight:600; color:#64748b; display:block; margin-bottom:2px;">Change</label>
+                            <div id="changeDisplay" style="font-size:12px; font-weight:700; color:#94a3b8; padding:5px 6px; background:#f8fafc; border-radius:5px; border:1px solid #e2e8f0; text-align:center;">Rs. 0.00</div>
+                        </div>
                     </div>
-                    <div style="flex:1;">
-                        <label style="font-size:9px; font-weight:600; color:#64748b; display:block; margin-bottom:2px;">Change</label>
-                        <div id="changeDisplay" style="font-size:12px; font-weight:700; color:#16a34a; padding:5px 6px; background:#f0fdf4; border-radius:5px; border:1px solid #bbf7d0; text-align:center;">Rs. 0.00</div>
+                    <div id="amountPaidError" style="display:none; font-size:10px; font-weight:600; color:#dc2626; padding:3px 4px; background:#fef2f2; border-radius:4px; border:1px solid #fecaca;">
+                        <i class="fas fa-exclamation-circle" style="margin-right:3px;"></i>
+                        <span id="amountPaidErrorText">Paid amount must cover the total.</span>
                     </div>
                 </div>
                 <!-- Card amount display -->
@@ -819,11 +818,6 @@
                 orderType = forceType;
             }
 
-            const selectEl = document.getElementById('orderTypeSelect');
-            if (selectEl && selectEl.value !== orderType) {
-                selectEl.value = orderType;
-            }
-
             const res = await fetch('{{ route("pos.order.create") }}', {
                 method: 'POST',
                 headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
@@ -1025,20 +1019,8 @@
             return;
         }
         if (!currentOrder || !currentOrder.id) {
-            const selectEl = document.getElementById('orderTypeSelect');
-            const orderType = selectEl ? selectEl.value : 'dine_in';
-            if (orderType === 'takeaway' || orderType === 'delivery' || orderType === 'vip_room') {
-                const created = await startTakeawayOrder(orderType);
-                if (!created) {
-                    toast('Failed to create order. Please try again.', 'error');
-                    return;
-                }
-                // Small delay to ensure order is created
-                await new Promise(resolve => setTimeout(resolve, 100));
-            } else {
-                toast('Please select a table or create a takeaway order first', 'error');
-                return;
-            }
+            toast('Please select a table or create a takeaway order first', 'error');
+            return;
         }
 
         // Verify order is valid before adding items
@@ -1596,14 +1578,54 @@
         if (el) el.textContent = 'Rs. ' + total.toFixed(2);
     }
 
+    function getAmountBorderColor() {
+        if (selectedPaymentMethod !== 'cash') return '#e2e8f0';
+        const total = getTotalDue();
+        const paid  = parseFloat(document.getElementById('amountPaid').value) || 0;
+        if (paid > 0 && paid < total) return '#dc2626';
+        if (paid >= total && paid > 0) return '#16a34a';
+        return '#e2e8f0';
+    }
+
     function updateChange() {
         if (selectedPaymentMethod !== 'cash') return;
-        const total    = getTotalDue();
-        const paid     = parseFloat(document.getElementById('amountPaid').value) || 0;
-        const change   = Math.max(0, paid - total);
-        const el       = document.getElementById('changeDisplay');
-        el.textContent = 'Rs. ' + change.toFixed(2);
-        el.style.color = change > 0 ? '#16a34a' : '#94a3b8';
+
+        const total     = getTotalDue();
+        const paid      = parseFloat(document.getElementById('amountPaid').value) || 0;
+        const change    = Math.max(0, paid - total);
+        const changeEl  = document.getElementById('changeDisplay');
+        const errorEl   = document.getElementById('amountPaidError');
+        const errorText = document.getElementById('amountPaidErrorText');
+        const inputEl   = document.getElementById('amountPaid');
+
+        // Change display
+        changeEl.textContent = 'Rs. ' + change.toFixed(2);
+
+        if (paid <= 0) {
+            // Nothing entered yet — neutral state
+            changeEl.style.color      = '#94a3b8';
+            changeEl.style.background = '#f8fafc';
+            changeEl.style.borderColor = '#e2e8f0';
+            errorEl.style.display = 'none';
+            inputEl.style.borderColor = '#e2e8f0';
+        } else if (paid < total) {
+            // Underpayment — show error
+            const shortfall = (total - paid).toFixed(2);
+            changeEl.textContent       = 'Rs. 0.00';
+            changeEl.style.color       = '#dc2626';
+            changeEl.style.background  = '#fef2f2';
+            changeEl.style.borderColor = '#fecaca';
+            errorText.textContent      = 'Short by Rs. ' + shortfall + ' — enter at least Rs. ' + total.toFixed(2);
+            errorEl.style.display      = 'flex';
+            inputEl.style.borderColor  = '#dc2626';
+        } else {
+            // Sufficient — show change in green
+            changeEl.style.color       = '#16a34a';
+            changeEl.style.background  = '#f0fdf4';
+            changeEl.style.borderColor = '#bbf7d0';
+            errorEl.style.display      = 'none';
+            inputEl.style.borderColor  = '#16a34a';
+        }
     }
 
     async function initiatePayment() {
@@ -1616,8 +1638,15 @@
         if (selectedPaymentMethod === 'cash') {
             const paidValue = parseFloat(document.getElementById('amountPaid').value);
             if (!Number.isFinite(paidValue) || paidValue <= 0) {
-                toast('Enter cash paid amount to complete payment', 'error');
+                toast('Enter the cash received amount.', 'error');
                 document.getElementById('amountPaid').focus();
+                return;
+            }
+            if (paidValue < total) {
+                const shortfall = (total - paidValue).toFixed(2);
+                toast('Insufficient amount — short by Rs. ' + shortfall, 'error');
+                document.getElementById('amountPaid').focus();
+                updateChange(); // re-trigger to show inline error
                 return;
             }
         }
@@ -1650,19 +1679,27 @@
     }
 
     function showPaidBill(d) {
-        const methodLabel = { cash:'Cash', card:'Card', bank_transfer:'Bank Transfer', mixed:'Mixed' };
+        const methodLabel   = { cash:'Cash', card:'Card', bank_transfer:'Bank Transfer', mixed:'Mixed' };
+        const locLabel      = (d.order_type && d.order_type !== 'dine_in')
+            ? d.order_type.replace('_', ' ').toUpperCase()
+            : 'T-' + (d.table_number || '—') + (d.table_name ? ' ' + d.table_name : '');
+        const discountLabel = d.discount_amount > 0
+            ? (d.discount_type === 'percentage'
+                ? 'Discount (' + d.discount_value + '%)'
+                : 'Discount (Fixed)')
+            : null;
 
         const html = rcptHeader('RECEIPT')
             + rcptMeta([
-                ['Order',   d.order_number],
-                ['Table',   'T-' + d.table_number + (d.table_name ? ' ' + d.table_name : '')],
-                ['Date',    new Date().toLocaleString()],
+                ['Order', d.order_number],
+                ['Type',  locLabel],
+                ['Date',  new Date().toLocaleString()],
             ])
             + (d.customer_name  ? '<div class="row sm mt4"><span class="label">Customer</span><span class="value">' + escapeHtml(d.customer_name) + '</span></div>' : '')
             + (d.customer_phone ? '<div class="row sm"><span class="label">Phone</span><span class="value">' + escapeHtml(d.customer_phone) + '</span></div>' : '')
             + rcptItemHeader()
             + rcptItemRows(d.items)
-            + rcptTotals(d.subtotal, d.discount_amount, d.total)
+            + rcptTotalsWithLabel(d.subtotal, d.discount_amount || 0, discountLabel, d.total)
             + '<div class="row mt4"><span class="label">Paid (' + (methodLabel[d.payment_method] || d.payment_method) + ')</span><span class="value bold">Rs.' + d.amount_paid.toFixed(2) + '</span></div>'
             + (d.change_amount > 0 ? '<div class="row"><span class="label">Change</span><span class="value">Rs.' + d.change_amount.toFixed(2) + '</span></div>' : '')
             + '<div class="divider-dashed mt8"></div>'
@@ -1682,24 +1719,39 @@
     async function printBill() {
         if (!currentOrder || !currentOrder.id) return;
         await saveCustomerInfo();
+
+        const discountType  = document.getElementById('discountType').value  || null;
+        const discountValue = parseFloat(document.getElementById('discountValue').value) || 0;
+
         const res  = await fetch('{{ route("pos.order.waiter_bill", ":id") }}'.replace(':id', currentOrder.id), {
-            method: 'POST',
-            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+            method:  'POST',
+            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ discount_type: discountType, discount_value: discountValue }),
         });
         const data = await res.json();
         if (!data.success) { toast('Could not generate bill', 'error'); return; }
 
+        const locLabel = data.order_type === 'dine_in'
+            ? 'T-' + (data.table_number || '—') + (data.table_name ? ' ' + data.table_name : '')
+            : (data.order_type || '').replace('_', ' ').toUpperCase();
+
+        const discountLabel = data.discount_amount > 0
+            ? (data.discount_type === 'percentage'
+                ? 'Discount (' + data.discount_value + '%)'
+                : 'Discount (Fixed)')
+            : null;
+
         const html = rcptHeader('BILL')
             + rcptMeta([
                 ['Order', data.order_number],
-                ['Table', 'T-' + data.table_number + (data.table_name ? ' ' + data.table_name : '')],
+                ['Type',  locLabel],
                 ['Date',  new Date().toLocaleString()],
             ])
             + (data.customer_name  ? '<div class="row sm mt4"><span class="label">Customer</span><span class="value">' + escapeHtml(data.customer_name) + '</span></div>' : '')
             + (data.customer_phone ? '<div class="row sm"><span class="label">Phone</span><span class="value">' + escapeHtml(data.customer_phone) + '</span></div>' : '')
             + rcptItemHeader()
             + rcptItemRows(data.items)
-            + rcptTotals(data.subtotal, data.discount_amount || 0, data.total)
+            + rcptTotalsWithLabel(data.subtotal, data.discount_amount || 0, discountLabel, data.total)
             + '<div class="divider-dashed mt8"></div>'
             + '<div class="center sm bold">** NOT A PAYMENT RECEIPT **</div>'
             + '<div class="center sm">Please pay at the counter</div>';
@@ -1721,9 +1773,9 @@
         });
         const data = await res.json();
         document.getElementById('kotOrderNumber').textContent = 'Order #' + data.order_number;
-        document.getElementById('kotTableNumber').textContent = 'Table ' + (currentTable ? currentTable.table_number : '—');
+        document.getElementById('kotTableNumber').textContent = kotLocationLabel(data);
         renderKotItems(data.items);
-        currentKotContent = buildKotHtml(data, currentTable ? currentTable.table_number : '—');
+        currentKotContent = buildKotHtml(data);
         openModal('kotModal');
     }
 
@@ -1734,9 +1786,9 @@
         });
         const data = await res.json();
         document.getElementById('kotOrderNumber').textContent = 'Order #' + data.order_number;
-        document.getElementById('kotTableNumber').textContent = 'Table ' + (data.table_number || '—');
+        document.getElementById('kotTableNumber').textContent = kotLocationLabel(data);
         renderKotItems(data.items);
-        currentKotContent = buildKotHtml(data, data.table_number || '—');
+        currentKotContent = buildKotHtml(data);
         openModal('kotModal');
     }
 
@@ -1752,8 +1804,18 @@
         }).join('');
     }
 
-    function buildKotHtml(data, tableNum) {
+    function kotLocationLabel(data) {
+        const type = (data.order_type || '').toLowerCase();
+        if (type === 'takeaway')    return 'TAKEAWAY';
+        if (type === 'delivery')    return 'DELIVERY';
+        if (type === 'vip_room')    return 'VIP ROOM';
+        // dine_in or unknown — show table number
+        return 'TABLE ' + (data.table_number || '—');
+    }
+
+    function buildKotHtml(data) {
         const itemCount = data.items.reduce(function(s, i) { return s + i.quantity; }, 0);
+        const locLabel  = kotLocationLabel(data);
 
         const items = data.items.map(function(i) {
             return '<div class="kot-item">'
@@ -1767,7 +1829,7 @@
 
         return '<div class="center mb8">'
             + '<div class="bold xl">KITCHEN ORDER</div>'
-            + '<div class="bold" style="font-size:13px; margin-top:4px; background:#000; color:#fff; padding:3px 10px; display:inline-block;">TABLE ' + tableNum + '</div>'
+            + '<div class="bold" style="font-size:13px; margin-top:4px; background:#000; color:#fff; padding:3px 10px; display:inline-block;">' + locLabel + '</div>'
             + '</div>'
             + '<div class="divider-solid"></div>'
             + '<div class="row sm mt4 mb4"><span class="label">Order:</span><span class="value bold">' + data.order_number + '</span></div>'
@@ -2020,11 +2082,17 @@
     }
 
     function rcptTotals(subtotal, discountAmt, total) {
+        return rcptTotalsWithLabel(subtotal, discountAmt, null, total);
+    }
+
+    // discountLabel: optional string shown next to "Discount", e.g. "Discount (10%)" or "Discount (Fixed)"
+    function rcptTotalsWithLabel(subtotal, discountAmt, discountLabel, total) {
+        const discRow = discountAmt > 0
+            ? '<div class="row"><span class="label">' + (discountLabel || 'Discount') + '</span><span class="value">-Rs.' + discountAmt.toFixed(2) + '</span></div>'
+            : '';
         return '<div class="divider-solid"></div>'
             + '<div class="row mt4"><span class="label">Subtotal</span><span class="value">Rs.' + subtotal.toFixed(2) + '</span></div>'
-            + (discountAmt > 0
-                ? '<div class="row"><span class="label">Discount</span><span class="value">-Rs.' + discountAmt.toFixed(2) + '</span></div>'
-                : '')
+            + discRow
             + '<div class="divider-double"></div>'
             + '<div class="row bold lg"><span class="label">TOTAL</span><span class="value">Rs.' + total.toFixed(2) + '</span></div>'
             + '<div class="divider-double"></div>';
