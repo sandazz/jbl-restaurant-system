@@ -173,11 +173,12 @@
                 // ── Delete handler (uses the shared form outside saveAllForm) ──
                 function confirmDelete(url, tierName, customerCount) {
                     let msg = 'Delete tier "' + tierName + '"?';
-                    if (customerCount > 0) msg += '\n⚠ ' + customerCount + ' customer(s) are assigned to this tier.';
-                    if (!confirm(msg)) return;
-                    const form = document.getElementById('deleteForm');
-                    form.action = url;
-                    form.submit();
+                    if (customerCount > 0) msg += ' ' + customerCount + ' customer(s) are assigned to this tier.';
+                    showDeleteConfirm(msg, function () {
+                        const form = document.getElementById('deleteForm');
+                        form.action = url;
+                        form.submit();
+                    });
                 }
 
                 // ── Save-button activation on first change ──

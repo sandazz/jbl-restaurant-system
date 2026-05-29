@@ -343,15 +343,19 @@ class PosController extends Controller
 
     public function printKot(Order $order)
     {
+        $order->load('table');
         $order->update(['kot_printed_at' => now()]);
         $kitchenItems = $order->items->where('is_bar_item', false)->values();
 
         return response()->json([
-            'success' => true,
+            'success'      => true,
             'order_number' => $order->order_number,
-            'items' => $kitchenItems->map(fn($item) => [
-                'product_name' => $item->product_name,
-                'quantity' => $item->quantity,
+            'order_type'   => $order->order_type,
+            'table_number' => $order->table?->table_number,
+            'table_name'   => $order->table?->name,
+            'items'        => $kitchenItems->map(fn($item) => [
+                'product_name'  => $item->product_name,
+                'quantity'      => $item->quantity,
                 'kitchen_notes' => $item->kitchen_notes,
             ]),
         ]);
@@ -416,28 +420,42 @@ class PosController extends Controller
         ]);
     }
 
-    public function printWaiterBill(Order $order)
+    public function printWaiterBill(Request $request, Order $order)
     {
         $order->load('items', 'table');
         $order->update(['waiter_bill_printed_at' => now()]);
 
-        $subtotal = $order->items->sum('subtotal');
-        $total = $subtotal;
+        $subtotal      = $order->items->sum('subtotal');
+        $discountType  = $request->input('discount_type');
+        $discountValue = (float) $request->input('discount_value', 0);
+
+        $discountAmount = 0;
+        if ($discountType === 'percentage') {
+            $discountAmount = round(($subtotal * $discountValue) / 100, 2);
+        } elseif ($discountType === 'fixed') {
+            $discountAmount = min($discountValue, $subtotal);
+        }
+
+        $total = max(0, $subtotal - $discountAmount);
 
         return response()->json([
-            'success' => true,
-            'order_number' => $order->order_number,
-            'table_number' => $order->table?->table_number,
-            'customer_name' => $order->customer_name,
-            'customer_phone' => $order->customer_phone,
-            'subtotal' => (float) $subtotal,
-            'tax_amount' => 0,
-            'total' => (float) $total,
-            'items' => $order->items->map(fn($item) => [
-                'product_name' => $item->product_name,
-                'quantity' => $item->quantity,
-                'unit_price' => (float) $item->unit_price,
-                'subtotal' => (float) $item->subtotal,
+            'success'         => true,
+            'order_number'    => $order->order_number,
+            'order_type'      => $order->order_type,
+            'table_number'    => $order->table?->table_number,
+            'table_name'      => $order->table?->name,
+            'customer_name'   => $order->customer_name,
+            'customer_phone'  => $order->customer_phone,
+            'subtotal'        => (float) $subtotal,
+            'discount_type'   => $discountType,
+            'discount_value'  => $discountValue,
+            'discount_amount' => (float) $discountAmount,
+            'total'           => (float) $total,
+            'items'           => $order->items->map(fn($item) => [
+                'product_name'  => $item->product_name,
+                'quantity'      => $item->quantity,
+                'unit_price'    => (float) $item->unit_price,
+                'subtotal'      => (float) $item->subtotal,
                 'kitchen_notes' => $item->kitchen_notes,
             ]),
         ]);
@@ -515,11 +533,14 @@ class PosController extends Controller
         return response()->json([
             'success'         => true,
             'order_number'    => $order->order_number,
+            'order_type'      => $order->order_type,
             'table_number'    => $order->table?->table_number,
             'table_name'      => $order->table?->name,
             'customer_name'   => $order->customer_name,
             'customer_phone'  => $order->customer_phone,
             'subtotal'        => (float) $subtotal,
+            'discount_type'   => $validated['discount_type'] ?? null,
+            'discount_value'  => (float) ($validated['discount_value'] ?? 0),
             'discount_amount' => (float) $discount,
             'total'           => (float) $total,
             'payment_method'  => $validated['payment_method'],
