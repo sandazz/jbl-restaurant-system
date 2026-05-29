@@ -66,10 +66,10 @@
                                             <a href="{{ route('customers.edit', $customer) }}" class="text-blue-600 hover:text-blue-800 text-sm font-semibold">
                                                 <i class="fas fa-edit mr-1"></i>Edit
                                             </a>
-                                            <form action="{{ route('customers.destroy', $customer) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure?')">
+                                            <form action="{{ route('customers.destroy', $customer) }}" method="POST" style="display:inline;">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" class="text-red-600 hover:text-red-800 text-sm font-semibold">
+                                                <button type="button" onclick="showDeleteConfirm(this.closest('form'))" class="text-red-600 hover:text-red-800 text-sm font-semibold">
                                                     <i class="fas fa-trash mr-1"></i>Delete
                                                 </button>
                                             </form>
