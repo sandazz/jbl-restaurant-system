@@ -2040,9 +2040,10 @@
     // ─── receipt building blocks ─────────────────────────────────────────────
     function rcptHeader(title) {
         return '<div class="center mb8">'
-            + '<div class="bold xl">BYOB Restaurant</div>'
+            + '<img src="/images/logo.png" alt="Logo" style="max-width:60mm; height:auto; margin-bottom:8px;">'
+            + '<div class="bold xl">JBL FOOD CORNER </div>'
             + '<div class="sm mt4">Your favourite dining destination</div>'
-            + '<div class="sm">Tel: +94 XX XXX XXXX</div>'
+            + '<div class="sm">NO 41, NAWALA ROAD , NUGEGODA</div>'
             + '<div class="divider-double mt8"></div>'
             + '<div class="bold lg mt4">' + title + '</div>'
             + '</div>';
