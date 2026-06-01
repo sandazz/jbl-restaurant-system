@@ -504,7 +504,8 @@
         </div>
         <div style="background:#f8fafc; border-radius:10px; padding:12px; margin-bottom:16px;">
             <p style="font-size:13px; font-weight:700; margin:0 0 3px;" id="kotOrderNumber">Order #—</p>
-            <p style="font-size:13px; color:#64748b; margin:0;" id="kotTableNumber">Table —</p>
+            <p style="font-size:13px; color:#64748b; margin:0 0 3px;" id="kotTableNumber">Table —</p>
+            <p style="font-size:13px; color:#7c3aed; font-weight:600; margin:0;" id="kotTokenNumber" style="display:none;"></p>
         </div>
         <div id="kotItems" style="max-height:260px; overflow-y:auto; background:#fff; border:1.5px solid #e2e8f0; border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:10px;"></div>
         <div style="display:flex; gap:10px; margin-top:20px;">
@@ -527,6 +528,25 @@
     </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════
+     MODAL: Token Selection (Multi-Order at One Table)
+══════════════════════════════════════════════════ -->
+<div id="tokenSelectModal" class="modal-overlay">
+    <div class="modal-box" style="max-width:420px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <div>
+                <h2 style="font-size:18px; font-weight:800; color:#0f172a; margin:0;"><i class="fas fa-ticket-alt" style="color:#7c3aed; margin-right:6px;"></i>Table Tokens</h2>
+                <p style="font-size:12px; color:#64748b; margin:4px 0 0;">Select token to load order or create new</p>
+            </div>
+            <button onclick="closeModal('tokenSelectModal')" style="background:none; border:none; font-size:22px; cursor:pointer; color:#94a3b8;">&times;</button>
+        </div>
+        <div id="tokenSelectList" style="display:flex; flex-direction:column; gap:10px; max-height:300px; overflow-y:auto; margin-bottom:16px;"></div>
+        <button onclick="startNewTokenAtTable()" class="btn-primary" style="width:100%; padding:12px;">
+            <i class="fas fa-plus" style="margin-right:6px;"></i>Create New Token
+        </button>
+    </div>
+</div>
+
 <!-- Toast notification -->
 <div id="toast"></div>
 
@@ -542,13 +562,14 @@
     let currentBillContent    = '';
     let tableFilter           = 'all';
     let currentCategoryId      = 0;
+    let selectedTableForTokens = null;
 
     // ── Bootstrap ──
     async function initPos() {
         await loadTables();
         loadCategories();
         await loadProducts();
-        loadHeldOrders();
+        updateHeldOrdersBadge();
         setupEventListeners();
     }
 
@@ -645,38 +666,27 @@
             const isOccupied = table.status === 'occupied' || table.status === 'reserved';
             const isSelected = currentTable && currentTable.id === table.id;
 
-            let itemBadge = '';
-            if (table.has_order && table.order_items_count > 0) {
-                itemBadge = '<div style="font-size:11px; font-weight:800; color:#dc2626; margin-top:4px;">'
-                    + '<i class="fas fa-circle-dot" style="font-size:8px;"></i> '
-                    + table.order_items_count + ' item' + (table.order_items_count !== 1 ? 's' : '')
-                    + '</div>';
-            }
-
-            let timeLabel = '';
-            if (table.occupied_at) {
-                timeLabel = '<div class="table-timer" data-occupied-at="' + table.occupied_at + '" style="margin-top:5px;">'
-                    + '<span class="elapsed-badge" style="display:inline-flex;align-items:center;gap:3px;'
-                    + 'font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;'
-                    + 'background:rgba(0,0,0,0.18);color:#fff;letter-spacing:0.01em;">'
-                    + '<i class="fas fa-clock" style="font-size:8px;"></i>'
-                    + '<span class="elapsed-text">—</span>'
-                    + '</span>'
+            // Token badge - show count of active tokens
+            let tokenBadge = '';
+            if (table.active_tokens && table.active_tokens.length > 0) {
+                tokenBadge = '<div style="font-size:12px; font-weight:800; color:#7c3aed; margin-top:6px;">'
+                    + '<i class="fas fa-ticket-alt" style="font-size:10px;"></i> '
+                    + table.active_tokens.length + ' token' + (table.active_tokens.length !== 1 ? 's' : '')
                     + '</div>';
             }
 
             let actionBar = '';
-            if (isOccupied && table.has_order) {
+            // Show KOT button only when single token exists
+            if (table.has_order && table.active_tokens && table.active_tokens.length === 1) {
                 actionBar = '<div class="table-card-actions">'
-                    + '<button onclick="printKotForTable(' + table.order_id + '); event.stopPropagation();" '
+                    + '<button onclick="printKotForTable(' + table.active_tokens[0].order_id + '); event.stopPropagation();" '
                     + 'style="flex:1; font-size:11px; font-weight:700; background:#ea580c; color:#fff; border:none; border-radius:7px; padding:6px 4px; cursor:pointer;">'
                     + '<i class="fas fa-print" style="margin-right:3px;"></i>KOT</button>'
                     + '</div>';
             }
 
-            const clickFn = isOccupied && table.has_order
-                ? 'viewTableOrder(' + table.order_id + ')'
-                : (isOccupied ? 'expandTableCard(' + table.id + ', event)' : 'startNewOrder(' + table.id + ')');
+            // ALL tables open token modal on click
+            let clickFn = 'showTokenSelectionModal(' + table.id + ')';
 
             const vipBadge = table.section === 'vip'
                 ? '<div style="position:absolute; top:6px; left:6px; font-size:9px; font-weight:800; background:#7c3aed; color:#fff; padding:2px 6px; border-radius:6px;">VIP</div>'
@@ -687,7 +697,7 @@
                 + '<div style="font-size:20px; font-weight:900; color:#0f172a; line-height:1;">' + table.table_number + '</div>'
                 + '<div style="font-size:11px; font-weight:600; color:#64748b; margin-top:2px;">' + escapeHtml(table.name) + '</div>'
                 + '<div style="font-size:10px; color:#94a3b8;">Cap: ' + table.capacity + '</div>'
-                + itemBadge + timeLabel + actionBar
+                + tokenBadge + actionBar
                 + '</div>';
         }).join('');
 
@@ -804,6 +814,128 @@
         await loadTables();
         hideLoading();
         toast('Table ' + table.table_number + ' opened', 'success');
+    }
+
+    function showTokenSelectionModal(tableId) {
+        const table = allTables.find(t => t.id === tableId);
+        if (!table) {
+            toast('Table not found', 'error');
+            return;
+        }
+
+        selectedTableForTokens = tableId;
+        const list = document.getElementById('tokenSelectList');
+
+        let tokensHtml = '';
+
+        // If table has active tokens, show them - simplified design
+        if (table.active_tokens && table.active_tokens.length > 0) {
+            tokensHtml = table.active_tokens.map(token => {
+                return '<button onclick="selectTokenAndLoadOrder(' + token.order_id + '); event.stopPropagation();" '
+                    + 'style="padding:16px; border:2px solid #7c3aed; border-radius:12px; background:#f5f3ff; cursor:pointer; transition:all 0.2s; width:100%; text-align:left;" '
+                    + 'onmouseover="this.style.borderColor=\'#6d28d9\'; this.style.background=\'#ede9fe\';" '
+                    + 'onmouseout="this.style.borderColor=\'#7c3aed\'; this.style.background=\'#f5f3ff\';">'
+                    + '<div style="display:flex; justify-content:space-between; align-items:center;">'
+                    + '<div style="text-align:left;">'
+                    + '<p style="font-size:16px; font-weight:900; color:#7c3aed; margin:0;"><i class="fas fa-ticket-alt" style="margin-right:6px;"></i>' + escapeHtml(token.token_number) + '</p>'
+                    + (token.customer_name ? '<p style="font-size:12px; color:#64748b; margin:4px 0 0;">' + escapeHtml(token.customer_name) + '</p>' : '')
+                    + '</div>'
+                    + '<span style="font-size:15px; font-weight:800; color:#7c3aed;">Rs. ' + token.total.toFixed(2) + '</span>'
+                    + '</div>'
+                    + '</button>';
+            }).join('');
+        }
+
+        list.innerHTML = tokensHtml;
+        openModal('tokenSelectModal');
+    }
+
+    async function selectTokenAndLoadOrder(orderId) {
+        try {
+            showLoading();
+            const res = await fetch('{{ route("pos.order.show", ":id") }}'.replace(':id', orderId));
+            if (!res.ok) {
+                toast('Failed to load order', 'error');
+                hideLoading();
+                return;
+            }
+
+            currentOrder = await res.json();
+            currentTable = allTables.find(t => t.id === currentOrder.table_id) || null;
+
+            document.getElementById('discountType').value = '';
+            document.getElementById('discountValue').value = '';
+            const discountBadge = document.getElementById('tierDiscountBadge');
+            if (discountBadge) discountBadge.style.display = 'none';
+
+            document.querySelectorAll('.table-card.expanded').forEach(c => c.classList.remove('expanded'));
+            document.querySelectorAll('.table-card.selected').forEach(c => c.classList.remove('selected'));
+            if (currentTable) {
+                const card = document.getElementById('tc-' + currentTable.id);
+                if (card) card.classList.add('selected');
+            }
+
+            renderTableView();
+            renderBill();
+            closeModal('tokenSelectModal');
+            hideLoading();
+
+        } catch (e) {
+            console.error('Select token error:', e);
+            hideLoading();
+            toast('Error loading order', 'error');
+        }
+    }
+
+    async function startNewTokenAtTable() {
+        if (!selectedTableForTokens) return;
+        const table = allTables.find(t => t.id === selectedTableForTokens);
+        if (!table) return;
+
+        closeModal('tokenSelectModal');
+        showLoading();
+
+        const res = await fetch('{{ route("pos.order.create") }}', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                table_id: selectedTableForTokens,
+                order_type: 'dine_in'
+            })
+        });
+
+        if (!res.ok) {
+            hideLoading();
+            toast('Failed to create new order', 'error');
+            return;
+        }
+
+        const data = await res.json();
+        currentTable = table;
+        currentOrder = {
+            id: data.order_id,
+            order_number: data.order_number,
+            token_number: data.token_number,
+            items: [],
+            subtotal: 0,
+            total: 0,
+            discount_amount: 0,
+            live_bill_enabled: false,
+            customer_name: null,
+            customer_phone: null,
+            table_id: selectedTableForTokens,
+        };
+
+        document.getElementById('discountType').value = '';
+        document.getElementById('discountValue').value = '';
+        const discountBadge = document.getElementById('tierDiscountBadge');
+        if (discountBadge) discountBadge.style.display = 'none';
+
+        renderTableView();
+        renderBill();
+        await loadTables();
+        hideLoading();
+        toast('New token created - ' + data.token_number, 'success');
     }
 
     async function startTakeawayOrder(forceType) {
@@ -1689,12 +1821,17 @@
                 : 'Discount (Fixed)')
             : null;
 
+        const metaRows = [
+            ['Order', d.order_number],
+            ['Type',  locLabel],
+            ['Date',  new Date().toLocaleString()],
+        ];
+        if (d.token_number) {
+            metaRows.splice(1, 0, ['Token', d.token_number]);
+        }
+
         const html = rcptHeader('RECEIPT')
-            + rcptMeta([
-                ['Order', d.order_number],
-                ['Type',  locLabel],
-                ['Date',  new Date().toLocaleString()],
-            ])
+            + rcptMeta(metaRows)
             + (d.customer_name  ? '<div class="row sm mt4"><span class="label">Customer</span><span class="value">' + escapeHtml(d.customer_name) + '</span></div>' : '')
             + (d.customer_phone ? '<div class="row sm"><span class="label">Phone</span><span class="value">' + escapeHtml(d.customer_phone) + '</span></div>' : '')
             + rcptItemHeader()
@@ -1741,12 +1878,17 @@
                 : 'Discount (Fixed)')
             : null;
 
+        const metaRows = [
+            ['Order', data.order_number],
+            ['Type',  locLabel],
+            ['Date',  new Date().toLocaleString()],
+        ];
+        if (data.token_number) {
+            metaRows.splice(1, 0, ['Token', data.token_number]);
+        }
+
         const html = rcptHeader('BILL')
-            + rcptMeta([
-                ['Order', data.order_number],
-                ['Type',  locLabel],
-                ['Date',  new Date().toLocaleString()],
-            ])
+            + rcptMeta(metaRows)
             + (data.customer_name  ? '<div class="row sm mt4"><span class="label">Customer</span><span class="value">' + escapeHtml(data.customer_name) + '</span></div>' : '')
             + (data.customer_phone ? '<div class="row sm"><span class="label">Phone</span><span class="value">' + escapeHtml(data.customer_phone) + '</span></div>' : '')
             + rcptItemHeader()
@@ -1774,6 +1916,13 @@
         const data = await res.json();
         document.getElementById('kotOrderNumber').textContent = 'Order #' + data.order_number;
         document.getElementById('kotTableNumber').textContent = kotLocationLabel(data);
+        const tokenEl = document.getElementById('kotTokenNumber');
+        if (data.token_number) {
+            tokenEl.textContent = 'Token: ' + data.token_number;
+            tokenEl.style.display = 'block';
+        } else {
+            tokenEl.style.display = 'none';
+        }
         renderKotItems(data.items);
         currentKotContent = buildKotHtml(data);
         openModal('kotModal');
@@ -1787,6 +1936,13 @@
         const data = await res.json();
         document.getElementById('kotOrderNumber').textContent = 'Order #' + data.order_number;
         document.getElementById('kotTableNumber').textContent = kotLocationLabel(data);
+        const tokenEl = document.getElementById('kotTokenNumber');
+        if (data.token_number) {
+            tokenEl.textContent = 'Token: ' + data.token_number;
+            tokenEl.style.display = 'block';
+        } else {
+            tokenEl.style.display = 'none';
+        }
         renderKotItems(data.items);
         currentKotContent = buildKotHtml(data);
         openModal('kotModal');
@@ -1833,6 +1989,7 @@
             + '</div>'
             + '<div class="divider-solid"></div>'
             + '<div class="row sm mt4 mb4"><span class="label">Order:</span><span class="value bold">' + data.order_number + '</span></div>'
+            + (data.token_number ? '<div class="row sm mb4"><span class="label">Token:</span><span class="value bold">' + data.token_number + '</span></div>' : '')
             + '<div class="row sm mb4"><span class="label">Time:</span><span class="value">' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) + '</span></div>'
             + '<div class="divider-double"></div>'
             + items
@@ -1865,6 +2022,19 @@
         loadHeldOrders();
     }
 
+    async function updateHeldOrdersBadge() {
+        try {
+            const res    = await fetch('{{ route("pos.held") }}');
+            if (!res.ok) return;
+            const orders = await res.json();
+            const badge  = document.getElementById('heldCount');
+            badge.textContent = orders.length;
+            badge.style.background = orders.length > 0 ? '#f59e0b' : '#94a3b8';
+        } catch (e) {
+            console.error('Update held orders badge error:', e);
+        }
+    }
+
     async function loadHeldOrders() {
         try {
             const res    = await fetch('{{ route("pos.held") }}');
@@ -1885,7 +2055,7 @@
                         + 'onmouseout="this.style.borderColor=\'#e2e8f0\'; this.style.background=\'#fff\';">'
                         + '<div style="display:flex; justify-content:space-between; align-items:flex-start;">'
                         + '<div>'
-                        + '<p style="font-size:13px; font-weight:800; color:#0f172a; margin:0;">' + o.order_number + '</p>'
+                        + '<p style="font-size:13px; font-weight:800; color:#0f172a; margin:0;">' + o.order_number + (o.token_number ? ' <span style="font-size:11px; color:#7c3aed; margin-left:4px;">(' + o.token_number + ')</span>' : '') + '</p>'
                         + '<p style="font-size:12px; color:#64748b; margin:3px 0 0;">Table ' + (o.table_number || '—') + ' &nbsp;&middot;&nbsp; ' + o.items_count + ' item' + (o.items_count !== 1 ? 's' : '') + '</p>'
                         + '</div>'
                         + '<span style="font-size:14px; font-weight:900; color:#dc2626;">Rs. ' + o.total.toFixed(2) + '</span>'
