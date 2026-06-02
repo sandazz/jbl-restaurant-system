@@ -8,6 +8,7 @@ use App\Models\RestaurantTable;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\TierDiscount;
+use App\Models\ClerkBalancing;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -22,12 +23,17 @@ class PosController extends Controller
         $modules      = auth()->user()->role->modules()->get();
         $tierDiscounts = TierDiscount::activeMap(); // ['VIP' => 15.0, 'Moderate' => 10.0, ...]
 
+        $hasOpenShift = ClerkBalancing::where('user_id', auth()->id())
+            ->where('status', 'open')
+            ->exists();
+
         return view('modules.pos', [
             'tables'        => $tables,
             'categories'    => $categories,
             'products'      => $products,
             'modules'       => $modules,
             'tierDiscounts' => $tierDiscounts,
+            'hasOpenShift'  => $hasOpenShift,
         ]);
     }
 

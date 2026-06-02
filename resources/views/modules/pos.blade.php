@@ -550,6 +550,21 @@
 <!-- Toast notification -->
 <div id="toast"></div>
 
+<!-- Shift Alert Modal -->
+<div id="shiftAlertModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:400px; text-align:center;">
+        <i class="fas fa-exclamation-triangle" style="font-size:48px; color:#dc2626; margin-bottom:16px; display:block;"></i>
+        <h2 style="font-size:18px; font-weight:800; color:#0f172a; margin:0 0 8px;">Shift Not Started</h2>
+        <p style="font-size:14px; color:#64748b; margin:0 0 24px;">You must start your shift before making a sale.</p>
+        <div style="display:flex; gap:10px;">
+            <button onclick="closeModal('shiftAlertModal')" class="btn-secondary" style="flex:1;">Close</button>
+            <a href="{{ route('clerk-balancings.create') }}" class="btn-primary" style="flex:1; text-decoration:none; display:flex; align-items:center; justify-content:center;">
+                <i class="fas fa-play" style="margin-right:6px;"></i>Start Shift
+            </a>
+        </div>
+    </div>
+</div>
+
 <script>
     // ── State ──
     let currentOrder  = null;
@@ -563,6 +578,12 @@
     let tableFilter           = 'all';
     let currentCategoryId      = 0;
     let selectedTableForTokens = null;
+    let hasOpenShift = {{ $hasOpenShift ? 'true' : 'false' }};
+
+    // ── Shift Guard ──
+    function showShiftAlert() {
+        document.getElementById('shiftAlertModal').style.display = 'flex';
+    }
 
     // ── Bootstrap ──
     async function initPos() {
@@ -888,6 +909,10 @@
     }
 
     async function startNewTokenAtTable() {
+        if (!hasOpenShift) {
+            showShiftAlert();
+            return;
+        }
         if (!selectedTableForTokens) return;
         const table = allTables.find(t => t.id === selectedTableForTokens);
         if (!table) return;
@@ -939,6 +964,10 @@
     }
 
     async function startTakeawayOrder(forceType) {
+        if (!hasOpenShift) {
+            showShiftAlert();
+            return;
+        }
         showLoading();
         try {
             // Deselect any previously selected table
@@ -1145,6 +1174,10 @@
     // ═══════════════════════════════════════════
 
     async function addProductToOrder(productId, productName, price) {
+        if (!hasOpenShift) {
+            showShiftAlert();
+            return;
+        }
         const product = allProducts.find(function(p) { return p.id === productId; });
         if (product && !product.is_unlimited_stock && product.quantity <= 0) {
             toast('Out of stock', 'error');
