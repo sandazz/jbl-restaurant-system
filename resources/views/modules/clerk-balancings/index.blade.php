@@ -9,13 +9,10 @@
             <h1 class="text-4xl font-bold text-gray-900 mb-2">Shift & Till Management</h1>
             <p class="text-gray-600 text-sm">Shift records and cash reconciliation</p>
         </div>
-        <form action="{{ route('clerk-balancings.store') }}" method="POST" class="inline">
-            @csrf
-            <button type="submit"
-                    class="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold text-sm transition-colors">
-                <i class="fas fa-play"></i>Open New Shift
-            </button>
-        </form>
+        <button onclick="openShiftModal()"
+                class="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold text-sm transition-colors">
+            <i class="fas fa-play"></i>Open New Shift
+        </button>
     </div>
 
     {{-- Flash Messages --}}
@@ -150,15 +147,82 @@
                 <i class="fas fa-cash-register text-gray-300 text-6xl mb-4 inline-block"></i>
                 <h3 class="text-xl font-semibold text-gray-900 mt-4 mb-2">No shifts recorded yet</h3>
                 <p class="text-gray-600 text-sm mb-6">Open a new shift to start tracking cash and reconciliation</p>
-                <form action="{{ route('clerk-balancings.store') }}" method="POST" class="inline">
-                    @csrf
-                    <button type="submit"
-                            class="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold text-sm transition-colors">
-                        <i class="fas fa-play"></i>Open New Shift
-                    </button>
-                </form>
+                <button onclick="openShiftModal()"
+                        class="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold text-sm transition-colors">
+                    <i class="fas fa-play"></i>Open New Shift
+                </button>
             </div>
         @endif
     </div>
+
+    <!-- Open Shift Modal -->
+    <div id="openShiftModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; display:flex !important; align-items:center; justify-content:center;">
+        <div style="background:white; border-radius:16px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1); max-width:400px; width:90%; padding:28px;">
+            <h2 style="font-size:20px; font-weight:700; color:#0f172a; margin:0 0 8px;">Open New Shift</h2>
+            <p style="font-size:14px; color:#64748b; margin:0 0 24px;">Enter your opening cash amount to start the shift</p>
+
+            <form id="openShiftForm" action="{{ route('clerk-balancings.store') }}" method="POST">
+                @csrf
+                <div style="margin-bottom:20px;">
+                    <label for="opening_amount_modal" style="display:block; font-size:13px; font-weight:600; color:#374151; margin-bottom:8px;">
+                        Opening Cash Amount
+                    </label>
+                    <div style="position:relative;">
+                        <span style="position:absolute; left:0; top:0; bottom:0; display:flex; align-items:center; padding-left:12px; color:#4b5563; font-weight:500; pointer-events:none;">
+                            Rs.
+                        </span>
+                        <input type="number"
+                               name="opening_amount"
+                               id="opening_amount_modal"
+                               value="0"
+                               step="0.01"
+                               min="0"
+                               style="width:100%; padding-left:40px; padding-right:16px; padding-top:10px; padding-bottom:10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px; box-sizing:border-box;"
+                               placeholder="0.00"
+                               required>
+                    </div>
+                    <p style="font-size:12px; color:#9ca3af; margin-top:8px;">
+                        <i class="fas fa-info-circle" style="margin-right:4px;"></i>Enter the opening float/till amount
+                    </p>
+                </div>
+
+                <div style="display:flex; gap:12px; margin-top:24px;">
+                    <button type="button" onclick="closeShiftModal()"
+                            style="flex:1; padding:10px 16px; background:#f3f4f6; color:#374151; border:none; border-radius:8px; font-weight:600; font-size:14px; cursor:pointer; transition:background 0.2s;">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            style="flex:1; padding:10px 16px; background:#dc2626; color:white; border:none; border-radius:8px; font-weight:600; font-size:14px; cursor:pointer; transition:background 0.2s;">
+                        <i class="fas fa-play" style="margin-right:6px;"></i>Start Shift
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
+
+<script>
+    function openShiftModal() {
+        document.getElementById('openShiftModal').style.display = 'flex';
+        document.getElementById('opening_amount_modal').focus();
+    }
+
+    function closeShiftModal() {
+        document.getElementById('openShiftModal').style.display = 'none';
+    }
+
+    // Close modal when clicking outside of it
+    document.getElementById('openShiftModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeShiftModal();
+        }
+    });
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeShiftModal();
+        }
+    });
+</script>
 @endsection
