@@ -529,10 +529,13 @@ class PosController extends Controller
     public function payOrder(Request $request, Order $order)
     {
         $validated = $request->validate([
-            'payment_method' => 'required|in:cash,card,bank_transfer,mixed',
-            'amount_paid'    => 'required|numeric|min:0',
-            'discount_type'  => 'nullable|in:percentage,fixed',
-            'discount_value' => 'nullable|numeric|min:0',
+            'payment_method'           => 'required|in:cash,card,bank_transfer,mixed',
+            'amount_paid'              => 'required|numeric|min:0',
+            'discount_type'            => 'nullable|in:percentage,fixed',
+            'discount_value'           => 'nullable|numeric|min:0',
+            'split_payments'           => 'nullable|array|min:2',
+            'split_payments.*.method'  => 'required_with:split_payments|in:cash,card,bank_transfer',
+            'split_payments.*.amount'  => 'required_with:split_payments|numeric|min:0',
         ]);
 
         $order->load('items', 'table');
@@ -546,8 +549,22 @@ class PosController extends Controller
         }
 
         $total      = $subtotal - $discount;
+        $splitData  = null;
         $amountPaid = $validated['amount_paid'];
-        $change     = max(0, $amountPaid - $total);
+        $change     = 0;
+
+        if ($validated['payment_method'] === 'mixed' && !empty($validated['split_payments'])) {
+            $splitData  = $validated['split_payments'];
+            $amountPaid = round(array_sum(array_column($splitData, 'amount')), 2);
+            $cashPaid   = array_sum(
+                array_column(array_filter($splitData, fn($s) => $s['method'] === 'cash'), 'amount')
+            );
+            $nonCash    = $amountPaid - $cashPaid;
+            $cashNeeded = max(0, $total - $nonCash);
+            $change     = max(0, round($cashPaid - $cashNeeded, 2));
+        } else {
+            $change = max(0, $amountPaid - $total);
+        }
 
         $order->update([
             'status'          => 'completed',
@@ -558,6 +575,7 @@ class PosController extends Controller
             'payment_method'  => $validated['payment_method'],
             'amount_paid'     => $amountPaid,
             'change_amount'   => $change,
+            'split_payments'  => $splitData,
             'printed_at'      => now(),
         ]);
 
@@ -592,6 +610,7 @@ class PosController extends Controller
             'payment_method'  => $validated['payment_method'],
             'amount_paid'     => (float) $amountPaid,
             'change_amount'   => (float) $change,
+            'split_payments'  => $splitData,
             'items'           => $order->items->map(fn($item) => [
                 'product_name'  => $item->product_name,
                 'quantity'      => $item->quantity,
