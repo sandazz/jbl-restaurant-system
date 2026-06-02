@@ -58,13 +58,25 @@ class ShiftBalancingService
             ->where('status', 'completed')
             ->whereBetween('updated_at', [$shiftStart, $shiftEnd]);
 
-        $expectedCash = (clone $baseQuery)
+        $expectedCash = (float) (clone $baseQuery)
             ->whereIn('payment_method', ['cash'])
             ->sum('amount_paid');
 
-        $expectedCard = (clone $baseQuery)
+        $expectedCard = (float) (clone $baseQuery)
             ->whereIn('payment_method', ['card', 'bank_transfer'])
             ->sum('amount_paid');
+
+        // Add split-payment (mixed) cash and card portions
+        (clone $baseQuery)->where('payment_method', 'mixed')->each(function ($order) use (&$expectedCash, &$expectedCard) {
+            foreach ((array) ($order->split_payments ?? []) as $split) {
+                $amount = (float) ($split['amount'] ?? 0);
+                if (($split['method'] ?? '') === 'cash') {
+                    $expectedCash += $amount;
+                } else {
+                    $expectedCard += $amount;
+                }
+            }
+        });
 
         $expectedTotal = $balancing->opening_amount + $expectedCash;
         $rawVariance  = $physicalCash - $expectedTotal;

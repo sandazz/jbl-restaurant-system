@@ -417,6 +417,9 @@
                     <button class="pay-method-btn" data-method="bank_transfer" onclick="selectPaymentMethod('bank_transfer')" style="flex:1; padding:6px 4px; font-size:10px;">
                         <i class="fas fa-university" style="display:block; font-size:13px; margin-bottom:2px;"></i>Bank
                     </button>
+                    <button class="pay-method-btn" data-method="mixed" onclick="selectPaymentMethod('mixed')" style="flex:1; padding:6px 4px; font-size:10px;">
+                        <i class="fas fa-code-branch" style="display:block; font-size:13px; margin-bottom:2px;"></i>Split
+                    </button>
                 </div>
                 <!-- Cash amount input -->
                 <div id="cashSection" style="display:flex; flex-direction:column; gap:4px;">
@@ -442,6 +445,30 @@
                     <div style="flex:1;">
                         <label style="font-size:9px; font-weight:600; color:#64748b; display:block; margin-bottom:2px;">Paid</label>
                         <div id="cardPaidDisplay" style="font-size:12px; font-weight:700; color:#0f172a; padding:5px 6px; background:#f8fafc; border-radius:5px; border:1px solid #e2e8f0; text-align:center;">Rs. 0.00</div>
+                    </div>
+                </div>
+                <!-- Split payment section -->
+                <div id="splitSection" style="display:none; flex-direction:column; gap:6px;">
+                    <div id="splitRows" style="display:flex; flex-direction:column; gap:5px;">
+                        <!-- Split rows injected by JS -->
+                    </div>
+                    <button onclick="addSplitRow()" id="addSplitRowBtn" style="font-size:9px; font-weight:700; color:#3b82f6; background:#eff6ff; border:1px dashed #93c5fd; border-radius:5px; padding:4px; cursor:pointer; display:none;">
+                        <i class="fas fa-plus" style="margin-right:3px;"></i>Add Method
+                    </button>
+                    <!-- Remaining / change indicator -->
+                    <div id="splitStatusRow" style="display:flex; gap:6px; margin-top:2px;">
+                        <div style="flex:1; text-align:center; background:#f8fafc; border-radius:5px; border:1px solid #e2e8f0; padding:4px 6px;">
+                            <div style="font-size:8px; font-weight:600; color:#64748b; margin-bottom:1px;">Remaining</div>
+                            <div id="splitRemaining" style="font-size:11px; font-weight:800; color:#dc2626;">Rs. 0.00</div>
+                        </div>
+                        <div style="flex:1; text-align:center; background:#f8fafc; border-radius:5px; border:1px solid #e2e8f0; padding:4px 6px;">
+                            <div style="font-size:8px; font-weight:600; color:#64748b; margin-bottom:1px;">Change</div>
+                            <div id="splitChange" style="font-size:11px; font-weight:800; color:#94a3b8;">Rs. 0.00</div>
+                        </div>
+                    </div>
+                    <div id="splitError" style="display:none; font-size:10px; font-weight:600; color:#dc2626; padding:3px 4px; background:#fef2f2; border-radius:4px; border:1px solid #fecaca;">
+                        <i class="fas fa-exclamation-circle" style="margin-right:3px;"></i>
+                        <span id="splitErrorText">Split amounts must cover the total.</span>
                     </div>
                 </div>
             </div>
@@ -1701,10 +1728,107 @@
         document.querySelectorAll('.pay-method-btn').forEach(function(btn) {
             btn.classList.toggle('active', btn.dataset.method === method);
         });
-        document.getElementById('cashSection').style.display = method === 'cash' ? 'flex' : 'none';
-        document.getElementById('cardSection').style.display = method === 'card' ? 'flex' : 'none';
+        document.getElementById('cashSection').style.display  = method === 'cash'  ? 'flex' : 'none';
+        document.getElementById('cardSection').style.display  = method === 'card'  ? 'flex' : 'none';
+        document.getElementById('splitSection').style.display = method === 'mixed' ? 'flex' : 'none';
         if (method !== 'cash') document.getElementById('changeDisplay').textContent = 'Rs. 0.00';
+        if (method === 'mixed') initSplitSection();
         updateCardPaidDisplay();
+    }
+
+    // ═══════════════════════════════════════════
+    // SPLIT PAYMENT
+    // ═══════════════════════════════════════════
+
+    const SPLIT_METHODS = [
+        { value: 'cash',          label: 'Cash',          icon: 'fa-money-bill-wave' },
+        { value: 'card',          label: 'Card',          icon: 'fa-credit-card'     },
+        { value: 'bank_transfer', label: 'Bank Transfer', icon: 'fa-university'      },
+    ];
+
+    function initSplitSection() {
+        const rows = document.getElementById('splitRows');
+        rows.innerHTML = '';
+        addSplitRow('card');
+        addSplitRow('cash');
+        updateSplitStatus();
+    }
+
+    function addSplitRow(defaultMethod) {
+        const existing = document.querySelectorAll('.split-row').length;
+        if (existing >= 3) return;
+        const method = defaultMethod || 'cash';
+        const idx    = Date.now();
+
+        const opts = SPLIT_METHODS.map(m =>
+            `<option value="${m.value}" ${m.value === method ? 'selected' : ''}>${m.label}</option>`
+        ).join('');
+
+        const row = document.createElement('div');
+        row.className   = 'split-row';
+        row.dataset.idx = idx;
+        row.style.cssText = 'display:flex; gap:5px; align-items:center;';
+        row.innerHTML = `
+            <select onchange="updateSplitStatus()" style="flex:0 0 90px; font-size:10px; font-weight:600; border:1.5px solid #e2e8f0; border-radius:5px; padding:4px 5px; outline:none; background:#fff;">${opts}</select>
+            <input type="number" placeholder="0.00" min="0" oninput="updateSplitStatus()"
+                   class="split-amount-input"
+                   style="flex:1; font-size:11px; font-weight:700; border:1.5px solid #e2e8f0; border-radius:5px; padding:5px 6px; outline:none; box-sizing:border-box;">
+            <button onclick="removeSplitRow(this)" style="flex:0 0 22px; height:22px; background:#fef2f2; border:1px solid #fecaca; border-radius:5px; cursor:pointer; color:#dc2626; font-size:11px; line-height:1;">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        document.getElementById('splitRows').appendChild(row);
+        updateAddSplitBtn();
+        updateSplitStatus();
+    }
+
+    function removeSplitRow(btn) {
+        const rows = document.querySelectorAll('.split-row');
+        if (rows.length <= 2) { toast('At least 2 payment methods required for split.', 'error'); return; }
+        btn.closest('.split-row').remove();
+        updateAddSplitBtn();
+        updateSplitStatus();
+    }
+
+    function updateAddSplitBtn() {
+        const count = document.querySelectorAll('.split-row').length;
+        document.getElementById('addSplitRowBtn').style.display = count < 3 ? 'block' : 'none';
+    }
+
+    function getSplitEntries() {
+        return Array.from(document.querySelectorAll('.split-row')).map(row => ({
+            method: row.querySelector('select').value,
+            amount: parseFloat(row.querySelector('.split-amount-input').value) || 0,
+        }));
+    }
+
+    function updateSplitStatus() {
+        const total   = getTotalDue();
+        const entries = getSplitEntries();
+        const paid    = entries.reduce((s, e) => s + e.amount, 0);
+        const cashPaid   = entries.filter(e => e.method === 'cash').reduce((s, e) => s + e.amount, 0);
+        const nonCash    = paid - cashPaid;
+        const cashNeeded = Math.max(0, total - nonCash);
+        const change     = Math.max(0, cashPaid - cashNeeded);
+        const remaining  = Math.max(0, total - paid);
+
+        const remEl     = document.getElementById('splitRemaining');
+        const changeEl  = document.getElementById('splitChange');
+        const errorEl   = document.getElementById('splitError');
+        const errorText = document.getElementById('splitErrorText');
+
+        remEl.textContent    = 'Rs. ' + remaining.toFixed(2);
+        changeEl.textContent = 'Rs. ' + change.toFixed(2);
+
+        remEl.style.color    = remaining > 0 ? '#dc2626' : '#16a34a';
+        changeEl.style.color = change > 0 ? '#16a34a' : '#94a3b8';
+
+        if (paid > 0 && remaining > 0) {
+            errorText.textContent  = 'Short by Rs. ' + remaining.toFixed(2);
+            errorEl.style.display  = 'flex';
+        } else {
+            errorEl.style.display  = 'none';
+        }
     }
 
     function calcDiscount(subtotal) {
@@ -1799,7 +1923,13 @@
         }
         await saveCustomerInfo();
 
-        const total = getTotalDue();
+        const total   = getTotalDue();
+        let payload = {
+            payment_method: selectedPaymentMethod,
+            discount_type:  document.getElementById('discountType').value || null,
+            discount_value: parseFloat(document.getElementById('discountValue').value) || 0,
+        };
+
         if (selectedPaymentMethod === 'cash') {
             const paidValue = parseFloat(document.getElementById('amountPaid').value);
             if (!Number.isFinite(paidValue) || paidValue <= 0) {
@@ -1811,23 +1941,34 @@
                 const shortfall = (total - paidValue).toFixed(2);
                 toast('Insufficient amount — short by Rs. ' + shortfall, 'error');
                 document.getElementById('amountPaid').focus();
-                updateChange(); // re-trigger to show inline error
+                updateChange();
                 return;
             }
+            payload.amount_paid = paidValue;
+
+        } else if (selectedPaymentMethod === 'mixed') {
+            const entries = getSplitEntries();
+            const paid    = entries.reduce((s, e) => s + e.amount, 0);
+            if (entries.some(e => e.amount <= 0)) {
+                toast('Enter an amount for each payment method.', 'error');
+                return;
+            }
+            if (paid < total - 0.01) {
+                toast('Split amounts do not cover the total — short by Rs. ' + (total - paid).toFixed(2), 'error');
+                updateSplitStatus();
+                return;
+            }
+            payload.amount_paid    = paid;
+            payload.split_payments = entries;
+
+        } else {
+            payload.amount_paid = total;
         }
-        const amountPaid  = selectedPaymentMethod === 'cash'
-            ? parseFloat(document.getElementById('amountPaid').value)
-            : total;
 
         const res = await fetch('{{ route("pos.order.pay", ":id") }}'.replace(':id', currentOrder.id), {
             method: 'POST',
             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                payment_method: selectedPaymentMethod,
-                amount_paid:    amountPaid,
-                discount_type:  document.getElementById('discountType').value || null,
-                discount_value: parseFloat(document.getElementById('discountValue').value) || 0,
-            })
+            body: JSON.stringify(payload),
         });
         if (!res.ok) {
             toast('Payment failed — server error', 'error');
@@ -1863,6 +2004,16 @@
             metaRows.splice(1, 0, ['Token', d.token_number]);
         }
 
+        let paymentLines = '';
+        if (d.payment_method === 'mixed' && Array.isArray(d.split_payments) && d.split_payments.length) {
+            paymentLines += '<div class="row mt4"><span class="label bold">Split Payment</span><span class="value bold">Rs.' + d.amount_paid.toFixed(2) + '</span></div>';
+            d.split_payments.forEach(function(sp) {
+                paymentLines += '<div class="row sm"><span class="label" style="padding-left:8px;">&#8627; ' + (methodLabel[sp.method] || sp.method) + '</span><span class="value">Rs.' + parseFloat(sp.amount).toFixed(2) + '</span></div>';
+            });
+        } else {
+            paymentLines += '<div class="row mt4"><span class="label">Paid (' + (methodLabel[d.payment_method] || d.payment_method) + ')</span><span class="value bold">Rs.' + d.amount_paid.toFixed(2) + '</span></div>';
+        }
+
         const html = rcptHeader('RECEIPT')
             + rcptMeta(metaRows)
             + (d.customer_name  ? '<div class="row sm mt4"><span class="label">Customer</span><span class="value">' + escapeHtml(d.customer_name) + '</span></div>' : '')
@@ -1870,7 +2021,7 @@
             + rcptItemHeader()
             + rcptItemRows(d.items)
             + rcptTotalsWithLabel(d.subtotal, d.discount_amount || 0, discountLabel, d.total)
-            + '<div class="row mt4"><span class="label">Paid (' + (methodLabel[d.payment_method] || d.payment_method) + ')</span><span class="value bold">Rs.' + d.amount_paid.toFixed(2) + '</span></div>'
+            + paymentLines
             + (d.change_amount > 0 ? '<div class="row"><span class="label">Change</span><span class="value">Rs.' + d.change_amount.toFixed(2) + '</span></div>' : '')
             + '<div class="divider-dashed mt8"></div>'
             + '<div class="center sm mt4">Thank you for dining with us!</div>'
@@ -2178,8 +2329,10 @@
         document.querySelectorAll('.pay-method-btn').forEach(function(b) {
             b.classList.toggle('active', b.dataset.method === 'cash');
         });
-        document.getElementById('cashSection').style.display = 'flex';
-        document.getElementById('cardSection').style.display = 'none';
+        document.getElementById('cashSection').style.display  = 'flex';
+        document.getElementById('cardSection').style.display  = 'none';
+        document.getElementById('splitSection').style.display = 'none';
+        document.getElementById('splitRows').innerHTML        = '';
 
         document.querySelectorAll('.table-card.expanded').forEach(c => c.classList.remove('expanded'));
         document.querySelectorAll('.table-card.selected').forEach(c => c.classList.remove('selected'));

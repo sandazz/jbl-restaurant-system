@@ -30,6 +30,7 @@ class Order extends Model
         'bot_printed_at',
         'waiter_bill_printed_at',
         'printed_at',
+        'split_payments',
     ];
 
     protected $casts = [
@@ -44,6 +45,7 @@ class Order extends Model
         'bot_printed_at'         => 'datetime',
         'waiter_bill_printed_at' => 'datetime',
         'printed_at'             => 'datetime',
+        'split_payments'         => 'array',
         'created_at'             => 'datetime',
         'updated_at'             => 'datetime',
     ];
