@@ -50,7 +50,11 @@ class ClerkBalancingController extends Controller
             return back()->withErrors(['shift' => 'You already have an open shift. Please close it first.']);
         }
 
-        $shift = $this->balancing->openShift(auth()->id());
+        $validated = $request->validate([
+            'opening_amount' => 'nullable|numeric|min:0',
+        ]);
+
+        $shift = $this->balancing->openShift(auth()->id(), $validated['opening_amount'] ?? 0);
 
         return redirect()
             ->route('clerk-balancings.show', $shift)

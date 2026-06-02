@@ -16,6 +16,7 @@ class Product extends Model
         'price',
         'selling_price',
         'quantity',
+        'low_stock_limit',
         'is_unlimited_stock',
         'status',
         'barcode',
@@ -65,5 +66,22 @@ class Product extends Model
         return $this->belongsToMany(Inventory::class, 'menu_item_ingredient')
             ->withPivot('quantity_required')
             ->withTimestamps();
+    }
+
+    public function isLowStock(): bool
+    {
+        if ($this->is_unlimited_stock) {
+            return false;
+        }
+
+        return $this->low_stock_limit > 0 && $this->quantity <= $this->low_stock_limit;
+    }
+
+    public function scopeLowStock($query)
+    {
+        return $query->where('is_unlimited_stock', false)
+            ->where('low_stock_limit', '>', 0)
+            ->whereColumn('quantity', '<=', 'low_stock_limit')
+            ->where('status', 'active');
     }
 }

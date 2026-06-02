@@ -28,12 +28,13 @@ class ShiftBalancingService
     /**
      * Open a new shift for the given cashier.
      */
-    public function openShift(int $userId): ClerkBalancing
+    public function openShift(int $userId, float $openingAmount = 0): ClerkBalancing
     {
         return ClerkBalancing::create([
-            'user_id'     => $userId,
-            'shift_start' => now(),
-            'status'      => 'open',
+            'user_id'        => $userId,
+            'shift_start'    => now(),
+            'opening_amount' => $openingAmount,
+            'status'         => 'open',
         ]);
     }
 
@@ -65,7 +66,8 @@ class ShiftBalancingService
             ->whereIn('payment_method', ['card', 'bank_transfer'])
             ->sum('amount_paid');
 
-        $rawVariance  = $physicalCash - $expectedCash;
+        $expectedTotal = $balancing->opening_amount + $expectedCash;
+        $rawVariance  = $physicalCash - $expectedTotal;
         $varianceType = match (true) {
             $rawVariance < 0 => 'shortage',
             $rawVariance > 0 => 'excess',

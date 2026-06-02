@@ -8,6 +8,7 @@ use App\Models\RestaurantTable;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\TierDiscount;
+use App\Models\ClerkBalancing;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -22,19 +23,26 @@ class PosController extends Controller
         $modules      = auth()->user()->role->modules()->get();
         $tierDiscounts = TierDiscount::activeMap(); // ['VIP' => 15.0, 'Moderate' => 10.0, ...]
 
+        $hasOpenShift = ClerkBalancing::where('user_id', auth()->id())
+            ->where('status', 'open')
+            ->exists();
+
         return view('modules.pos', [
             'tables'        => $tables,
             'categories'    => $categories,
             'products'      => $products,
             'modules'       => $modules,
             'tierDiscounts' => $tierDiscounts,
+            'hasOpenShift'  => $hasOpenShift,
         ]);
     }
 
     public function getTables()
     {
-        $tables = RestaurantTable::with('activeOrder.items')->get()->map(function ($table) {
-            $activeOrder = $table->activeOrder;
+        $tables = RestaurantTable::with('activeOrders.items')->get()->map(function ($table) {
+            $activeOrders = $table->activeOrders;
+            $firstOrder = $activeOrders->first();
+
             return [
                 'id' => $table->id,
                 'table_number' => $table->table_number,
@@ -43,9 +51,17 @@ class PosController extends Controller
                 'status' => $table->status,
                 'section' => $table->section,
                 'occupied_at' => $table->occupied_at,
-                'has_order' => $activeOrder ? true : false,
-                'order_id' => $activeOrder?->id,
-                'order_items_count' => $activeOrder?->items->count() ?? 0,
+                'has_order' => $activeOrders->count() > 0,
+                'order_id' => $firstOrder?->id,
+                'order_items_count' => $firstOrder?->items->count() ?? 0,
+                'active_tokens' => $activeOrders->map(fn($order) => [
+                    'order_id' => $order->id,
+                    'token_number' => $order->token_number,
+                    'order_number' => $order->order_number,
+                    'items_count' => $order->items->count(),
+                    'customer_name' => $order->customer_name,
+                    'total' => (float) $order->total,
+                ])->toArray(),
             ];
         });
 
@@ -94,8 +110,11 @@ class PosController extends Controller
             'waiter_name' => 'nullable|string',
         ]);
 
+        $tokenNumber = $this->generateTokenNumber();
+
         $order = Order::create([
             'order_number' => 'ORD-' . Str::random(8),
+            'token_number' => $tokenNumber,
             'table_id' => $validated['table_id'] ?? null,
             'customer_id' => $validated['customer_id'] ?? null,
             'customer_name' => $validated['customer_name'] ?? null,
@@ -105,17 +124,22 @@ class PosController extends Controller
             'waiter_name' => $validated['waiter_name'] ?? auth()->user()->name,
         ]);
 
+        // Only mark table as occupied if it's not already
         if (!empty($validated['table_id'])) {
-            RestaurantTable::find($validated['table_id'])->update([
-                'status' => 'occupied',
-                'occupied_at' => now(),
-            ]);
+            $table = RestaurantTable::find($validated['table_id']);
+            if ($table && $table->status !== 'occupied') {
+                $table->update([
+                    'status' => 'occupied',
+                    'occupied_at' => now(),
+                ]);
+            }
         }
 
         return response()->json([
             'success' => true,
             'order_id' => $order->id,
             'order_number' => $order->order_number,
+            'token_number' => $tokenNumber,
         ]);
     }
 
@@ -126,12 +150,14 @@ class PosController extends Controller
         return response()->json([
             'id' => $order->id,
             'order_number' => $order->order_number,
+            'token_number' => $order->token_number,
             'table_id' => $order->table_id,
             'table_number' => $order->table?->table_number,
             'order_type' => $order->order_type,
             'status' => $order->status,
             'customer_name' => $order->customer_name,
             'customer_phone' => $order->customer_phone,
+            'customer' => $order->customer,
             'live_bill_enabled' => $order->live_bill_enabled,
             'waiter_bill_printed_at' => $order->waiter_bill_printed_at,
             'subtotal' => (float) $order->subtotal,
@@ -342,15 +368,20 @@ class PosController extends Controller
 
     public function printKot(Order $order)
     {
+        $order->load('table');
         $order->update(['kot_printed_at' => now()]);
         $kitchenItems = $order->items->where('is_bar_item', false)->values();
 
         return response()->json([
-            'success' => true,
+            'success'      => true,
             'order_number' => $order->order_number,
-            'items' => $kitchenItems->map(fn($item) => [
-                'product_name' => $item->product_name,
-                'quantity' => $item->quantity,
+            'token_number' => $order->token_number,
+            'order_type'   => $order->order_type,
+            'table_number' => $order->table?->table_number,
+            'table_name'   => $order->table?->name,
+            'items'        => $kitchenItems->map(fn($item) => [
+                'product_name'  => $item->product_name,
+                'quantity'      => $item->quantity,
                 'kitchen_notes' => $item->kitchen_notes,
             ]),
         ]);
@@ -379,10 +410,17 @@ class PosController extends Controller
         return response()->json($orders->map(fn($order) => [
             'id' => $order->id,
             'order_number' => $order->order_number,
+            'token_number' => $order->token_number,
             'table_number' => $order->table?->table_number,
             'items_count' => $order->items->count(),
             'total' => (float) $order->total,
         ]));
+    }
+
+    private function generateTokenNumber(): string
+    {
+        $count = Order::whereDate('created_at', today())->count() + 1;
+        return 'T-' . str_pad($count, 3, '0', STR_PAD_LEFT);
     }
 
     private function updateOrderTotals(Order $order)
@@ -415,28 +453,43 @@ class PosController extends Controller
         ]);
     }
 
-    public function printWaiterBill(Order $order)
+    public function printWaiterBill(Request $request, Order $order)
     {
         $order->load('items', 'table');
         $order->update(['waiter_bill_printed_at' => now()]);
 
-        $subtotal = $order->items->sum('subtotal');
-        $total = $subtotal;
+        $subtotal      = $order->items->sum('subtotal');
+        $discountType  = $request->input('discount_type');
+        $discountValue = (float) $request->input('discount_value', 0);
+
+        $discountAmount = 0;
+        if ($discountType === 'percentage') {
+            $discountAmount = round(($subtotal * $discountValue) / 100, 2);
+        } elseif ($discountType === 'fixed') {
+            $discountAmount = min($discountValue, $subtotal);
+        }
+
+        $total = max(0, $subtotal - $discountAmount);
 
         return response()->json([
-            'success' => true,
-            'order_number' => $order->order_number,
-            'table_number' => $order->table?->table_number,
-            'customer_name' => $order->customer_name,
-            'customer_phone' => $order->customer_phone,
-            'subtotal' => (float) $subtotal,
-            'tax_amount' => 0,
-            'total' => (float) $total,
-            'items' => $order->items->map(fn($item) => [
-                'product_name' => $item->product_name,
-                'quantity' => $item->quantity,
-                'unit_price' => (float) $item->unit_price,
-                'subtotal' => (float) $item->subtotal,
+            'success'         => true,
+            'order_number'    => $order->order_number,
+            'token_number'    => $order->token_number,
+            'order_type'      => $order->order_type,
+            'table_number'    => $order->table?->table_number,
+            'table_name'      => $order->table?->name,
+            'customer_name'   => $order->customer_name,
+            'customer_phone'  => $order->customer_phone,
+            'subtotal'        => (float) $subtotal,
+            'discount_type'   => $discountType,
+            'discount_value'  => $discountValue,
+            'discount_amount' => (float) $discountAmount,
+            'total'           => (float) $total,
+            'items'           => $order->items->map(fn($item) => [
+                'product_name'  => $item->product_name,
+                'quantity'      => $item->quantity,
+                'unit_price'    => (float) $item->unit_price,
+                'subtotal'      => (float) $item->subtotal,
                 'kitchen_notes' => $item->kitchen_notes,
             ]),
         ]);
@@ -456,11 +509,19 @@ class PosController extends Controller
     public function closeTable(Order $order)
     {
         $order->update(['status' => 'cancelled']);
+
         if ($order->table_id) {
-            RestaurantTable::find($order->table_id)->update([
-                'status' => 'available',
-                'occupied_at' => null,
-            ]);
+            $table = RestaurantTable::find($order->table_id);
+            if ($table) {
+                // Only free the table if NO other active orders remain
+                $remainingOrders = $table->activeOrders()->count();
+                if ($remainingOrders === 0) {
+                    $table->update([
+                        'status' => 'available',
+                        'occupied_at' => null,
+                    ]);
+                }
+            }
         }
         return response()->json(['success' => true, 'message' => 'Table closed']);
     }
@@ -500,25 +561,32 @@ class PosController extends Controller
             'printed_at'      => now(),
         ]);
 
-        // Only update table status if this order is for dine-in (has a table_id)
+        // Only update table status if no other active orders remain
         if ($order->table_id) {
             $table = RestaurantTable::find($order->table_id);
             if ($table) {
-                $table->update([
-                    'status'      => 'available',
-                    'occupied_at' => null,
-                ]);
+                $remainingOrders = $table->activeOrders()->count();
+                if ($remainingOrders === 0) {
+                    $table->update([
+                        'status'      => 'available',
+                        'occupied_at' => null,
+                    ]);
+                }
             }
         }
 
         return response()->json([
             'success'         => true,
             'order_number'    => $order->order_number,
+            'token_number'    => $order->token_number,
+            'order_type'      => $order->order_type,
             'table_number'    => $order->table?->table_number,
             'table_name'      => $order->table?->name,
             'customer_name'   => $order->customer_name,
             'customer_phone'  => $order->customer_phone,
             'subtotal'        => (float) $subtotal,
+            'discount_type'   => $validated['discount_type'] ?? null,
+            'discount_value'  => (float) ($validated['discount_value'] ?? 0),
             'discount_amount' => (float) $discount,
             'total'           => (float) $total,
             'payment_method'  => $validated['payment_method'],

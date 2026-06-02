@@ -16,6 +16,13 @@
                 <a href="{{ route('stock.adjustments.index') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-900 px-6 py-3 rounded-lg font-semibold transition-colors">
                     <i class="fas fa-layer-group mr-2"></i>Stock Adjustments
                 </a>
+                <a href="{{ route('products.low-stock') }}" class="relative inline-flex items-center gap-2 border {{ $lowStockCount > 0 ? 'border-orange-400 bg-orange-50 hover:bg-orange-100 text-orange-700' : 'border-gray-300 bg-gray-100 text-gray-500 hover:bg-gray-200' }} px-5 py-3 rounded-lg font-semibold transition-colors">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Low Stock
+                    @if($lowStockCount > 0)
+                        <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-orange-500 rounded-full">{{ $lowStockCount }}</span>
+                    @endif
+                </a>
                 <a href="{{ route('products.create') }}" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors">
                     <i class="fas fa-plus mr-2"></i>Add Product
                 </a>
@@ -73,11 +80,23 @@
                                     </td>
                                     <td class="px-6 py-4 text-sm text-gray-600">
                                         @if($product->is_unlimited_stock)
-                                            <span class="px-3 py-1 rounded-lg bg-purple-100 text-purple-800">Unlimited</span>
+                                            <span class="px-3 py-1 rounded-lg bg-purple-100 text-purple-800 text-xs font-semibold">Unlimited</span>
                                         @else
-                                            <span class="px-3 py-1 rounded-lg {{ $product->quantity > 0 ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800' }}">
-                                                {{ $product->quantity }}
-                                            </span>
+                                            <div class="flex items-center gap-2">
+                                                <span class="px-3 py-1 rounded-lg text-xs font-semibold
+                                                    {{ $product->quantity == 0 ? 'bg-red-100 text-red-800' : ($product->isLowStock() ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800') }}">
+                                                    {{ $product->quantity }}
+                                                </span>
+                                                @if($product->isLowStock())
+                                                    <span class="text-orange-500 text-xs font-semibold flex items-center gap-1">
+                                                        <i class="fas fa-exclamation-triangle text-xs"></i>
+                                                        Low
+                                                    </span>
+                                                @endif
+                                            </div>
+                                            @if($product->low_stock_limit > 0)
+                                                <div class="text-xs text-gray-400 mt-1">Limit: {{ $product->low_stock_limit }}</div>
+                                            @endif
                                         @endif
                                     </td>
                                     <td class="px-6 py-4 text-sm">
@@ -90,10 +109,10 @@
                                             <a href="{{ route('products.edit', $product) }}" class="text-blue-600 hover:text-blue-800 text-sm font-semibold">
                                                 <i class="fas fa-edit mr-1"></i>Edit
                                             </a>
-                                            <form action="{{ route('products.destroy', $product) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure?')">
+                                            <form action="{{ route('products.destroy', $product) }}" method="POST" style="display:inline;">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" class="text-red-600 hover:text-red-800 text-sm font-semibold">
+                                                <button type="button" onclick="showDeleteConfirm(this.closest('form'))" class="text-red-600 hover:text-red-800 text-sm font-semibold">
                                                     <i class="fas fa-trash mr-1"></i>Delete
                                                 </button>
                                             </form>

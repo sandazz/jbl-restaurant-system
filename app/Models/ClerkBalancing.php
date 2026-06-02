@@ -9,6 +9,7 @@ class ClerkBalancing extends Model
     protected $fillable = [
         'user_id',
         'shift_start',
+        'opening_amount',
         'shift_end',
         'note_5000', 'note_2000', 'note_1000', 'note_500', 'note_200',
         'note_100', 'note_50', 'note_20', 'note_10',
@@ -24,6 +25,7 @@ class ClerkBalancing extends Model
 
     protected $casts = [
         'shift_start'          => 'datetime',
+        'opening_amount'       => 'decimal:2',
         'shift_end'            => 'datetime',
         'physical_cash_total'  => 'decimal:2',
         'expected_cash_total'  => 'decimal:2',

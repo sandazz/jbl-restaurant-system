@@ -35,6 +35,13 @@ class RestaurantTable extends Model
             ->latest();
     }
 
+    public function activeOrders()
+    {
+        return $this->hasMany(Order::class, 'table_id')
+            ->whereIn('status', ['pending', 'confirmed', 'hold'])
+            ->latest();
+    }
+
     /** Minutes elapsed since table became occupied. Returns null when not occupied. */
     public function elapsedMinutes(): ?int
     {

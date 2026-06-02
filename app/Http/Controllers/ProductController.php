@@ -13,12 +13,23 @@ class ProductController extends Controller
 {
     public function index()
     {
-        $products = Product::with(['category', 'supplierRecord'])->paginate(10);
+        $products      = Product::with(['category', 'supplierRecord'])->paginate(10);
+        $lowStockCount = Product::lowStock()->count();
+        $modules       = auth()->user()->role->modules()->get();
+
+        return view('modules.products-list', compact('products', 'lowStockCount', 'modules'));
+    }
+
+    public function lowStock()
+    {
+        $products = Product::with(['category', 'supplierRecord'])
+            ->lowStock()
+            ->orderByRaw('quantity - low_stock_limit ASC')
+            ->get();
+
         $modules = auth()->user()->role->modules()->get();
-        return view('modules.products-list', [
-            'products' => $products,
-            'modules' => $modules,
-        ]);
+
+        return view('modules.products-low-stock', compact('products', 'modules'));
     }
 
     public function create()
@@ -45,7 +56,8 @@ class ProductController extends Controller
             'description' => 'nullable|string|max:1000',
             'cost_price' => 'nullable|numeric|min:0',
             'selling_price' => 'nullable|numeric|min:0',
-            'quantity' => $isUnlimitedStock ? 'nullable|integer|min:0' : 'required|integer|min:0',
+            'quantity'        => $isUnlimitedStock ? 'nullable|integer|min:0' : 'required|integer|min:0',
+            'low_stock_limit' => 'nullable|integer|min:0',
             'is_unlimited_stock' => 'nullable|boolean',
             'barcode' => 'nullable|string|unique:products',
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp,gif|max:2048',
@@ -103,7 +115,8 @@ class ProductController extends Controller
             'description' => 'nullable|string|max:1000',
             'cost_price' => 'nullable|numeric|min:0',
             'selling_price' => 'nullable|numeric|min:0',
-            'quantity' => $isUnlimitedStock ? 'nullable|integer|min:0' : 'required|integer|min:0',
+            'quantity'        => $isUnlimitedStock ? 'nullable|integer|min:0' : 'required|integer|min:0',
+            'low_stock_limit' => 'nullable|integer|min:0',
             'is_unlimited_stock' => 'nullable|boolean',
             'barcode' => 'nullable|string|unique:products,barcode,' . $product->id,
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp,gif|max:2048',

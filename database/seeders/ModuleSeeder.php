@@ -83,6 +83,14 @@ class ModuleSeeder extends Seeder
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
+            [
+                'name' => 'Shift & Till',
+                'description' => 'Cashier shift and till reconciliation',
+                'icon' => 'balance-scale',
+                'route' => 'clerk-balancings.index',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
         ];
 
         DB::table('modules')->upsert(
@@ -97,6 +105,7 @@ class ModuleSeeder extends Seeder
 
         $allModules = DB::table('modules')->get();
         $posModuleId = DB::table('modules')->where('name', 'POS & Billing')->first()->id;
+        $shiftModuleId = DB::table('modules')->where('name', 'Shift & Till')->first()->id;
 
         foreach ($allModules as $module) {
             DB::table('role_module')->insertOrIgnore([
@@ -115,7 +124,7 @@ class ModuleSeeder extends Seeder
                 ]);
             }
 
-            if ($module->id === $posModuleId) {
+            if ($module->id === $posModuleId || $module->id === $shiftModuleId) {
                 DB::table('role_module')->insertOrIgnore([
                     'role_id' => $cashierId,
                     'module_id' => $module->id,
