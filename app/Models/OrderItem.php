@@ -15,12 +15,14 @@ class OrderItem extends Model
         'subtotal',
         'kitchen_notes',
         'is_bar_item',
+        'kot_sent_quantity',
     ];
 
     protected $casts = [
         'unit_price' => 'decimal:2',
         'subtotal' => 'decimal:2',
         'is_bar_item' => 'boolean',
+        'kot_sent_quantity' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
