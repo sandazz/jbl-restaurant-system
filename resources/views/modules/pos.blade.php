@@ -2045,6 +2045,10 @@
             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
         });
         const data = await res.json();
+        if (!res.ok || !data.success) {
+            toast(data.message || 'No new kitchen items to print', 'error');
+            return;
+        }
         document.getElementById('kotOrderNumber').textContent = 'Order #' + data.order_number;
         document.getElementById('kotTableNumber').textContent = kotLocationLabel(data);
         const tokenEl = document.getElementById('kotTokenNumber');
@@ -2065,6 +2069,10 @@
             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
         });
         const data = await res.json();
+        if (!res.ok || !data.success) {
+            toast(data.message || 'No new kitchen items to print', 'error');
+            return;
+        }
         document.getElementById('kotOrderNumber').textContent = 'Order #' + data.order_number;
         document.getElementById('kotTableNumber').textContent = kotLocationLabel(data);
         const tokenEl = document.getElementById('kotTokenNumber');
@@ -2120,6 +2128,7 @@
             + '</div>'
             + '<div class="divider-solid"></div>'
             + '<div class="row sm mt4 mb4"><span class="label">Order:</span><span class="value bold">' + data.order_number + '</span></div>'
+            + (data.table_name ? '<div class="row sm mb4"><span class="label">Table:</span><span class="value bold">' + escapeHtml(data.table_name) + '</span></div>' : '')
             + (data.token_number ? '<div class="row sm mb4"><span class="label">Token:</span><span class="value bold">' + data.token_number + '</span></div>' : '')
             + '<div class="row sm mb4"><span class="label">Time:</span><span class="value">' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) + '</span></div>'
             + '<div class="divider-double"></div>'
