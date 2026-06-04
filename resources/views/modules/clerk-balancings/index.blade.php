@@ -3,16 +3,24 @@
 
 @section('content')
 <div class="px-6 py-8">
+    {{-- Check for user's open shift --}}
+    @php
+        $userOpenShift = $records->getCollection()
+            ->firstWhere(fn($r) => $r->user_id === auth()->id() && $r->isOpen());
+    @endphp
+
     {{-- Header --}}
     <div class="flex items-center justify-between mb-8">
         <div>
             <h1 class="text-4xl font-bold text-gray-900 mb-2">Shift & Till Management</h1>
             <p class="text-gray-600 text-sm">Shift records and cash reconciliation</p>
         </div>
-        <button onclick="openShiftModal()"
-                class="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold text-sm transition-colors">
-            <i class="fas fa-play"></i>Open New Shift
-        </button>
+        @if(!$userOpenShift)
+            <button onclick="openShiftModal()"
+                    class="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold text-sm transition-colors">
+                <i class="fas fa-play"></i>Open New Shift
+            </button>
+        @endif
     </div>
 
     {{-- Flash Messages --}}
@@ -29,12 +37,6 @@
             <p>{{ $errors->first('shift') }}</p>
         </div>
     @endif
-
-    {{-- Warning Banner for Open Shift --}}
-    @php
-        $userOpenShift = $records->getCollection()
-            ->firstWhere(fn($r) => $r->user_id === auth()->id() && $r->isOpen());
-    @endphp
     @if($userOpenShift)
         <div class="mb-6 p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-sm flex items-start gap-3 justify-between">
             <div class="flex items-start gap-3">
@@ -147,15 +149,18 @@
                 <i class="fas fa-cash-register text-gray-300 text-6xl mb-4 inline-block"></i>
                 <h3 class="text-xl font-semibold text-gray-900 mt-4 mb-2">No shifts recorded yet</h3>
                 <p class="text-gray-600 text-sm mb-6">Open a new shift to start tracking cash and reconciliation</p>
-                <button onclick="openShiftModal()"
-                        class="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold text-sm transition-colors">
-                    <i class="fas fa-play"></i>Open New Shift
-                </button>
+                @if(!$userOpenShift)
+                    <button onclick="openShiftModal()"
+                            class="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold text-sm transition-colors">
+                        <i class="fas fa-play"></i>Open New Shift
+                    </button>
+                @endif
             </div>
         @endif
     </div>
 
     <!-- Open Shift Modal -->
+    @if(!$userOpenShift)
     <div id="openShiftModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; display:flex !important; align-items:center; justify-content:center;">
         <div style="background:white; border-radius:16px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1); max-width:400px; width:90%; padding:28px;">
             <h2 style="font-size:20px; font-weight:700; color:#0f172a; margin:0 0 8px;">Open New Shift</h2>
@@ -199,9 +204,11 @@
             </form>
         </div>
     </div>
+    @endif
 </div>
 
 <script>
+    @if(!$userOpenShift)
     function openShiftModal() {
         document.getElementById('openShiftModal').style.display = 'flex';
         document.getElementById('opening_amount_modal').focus();
@@ -224,5 +231,6 @@
             closeShiftModal();
         }
     });
+    @endif
 </script>
 @endsection
