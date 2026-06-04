@@ -2287,14 +2287,15 @@
         body {
             font-family: 'Courier New', Courier, monospace;
             font-size: 11px;
+            font-weight: 900;
             color: #000;
             background: #fff;
             width: 80mm;
             padding: 4mm 3mm 6mm;
         }
         @media print {
-            @page { size: 80mm auto; margin: 0; }
-            body  { padding: 2mm; }
+            @page { size: 80mm auto; margin: 2mm 5mm 2mm 8mm; }
+            body  { width: 100%; padding: 0.5mm 0; }
         }
         .center  { text-align: center; }
         .right   { text-align: right; }
@@ -2313,8 +2314,8 @@
         .row .label { flex: 1; }
         .row .value { white-space: nowrap; padding-left: 8px; }
         .item-name  { flex: 1; word-break: break-word; }
-        .item-qty   { width: 28px; text-align: center; flex-shrink: 0; }
-        .item-amt   { width: 60px; text-align: right; flex-shrink: 0; }
+        .item-qty   { width: 22px; text-align: center; flex-shrink: 0; }
+        .item-amt   { width: 75px; text-align: right; flex-shrink: 0; }
         .mt2  { margin-top: 2px; }
         .mb8  { margin-bottom: 8px; }
         .kot-item {
