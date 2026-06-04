@@ -12,6 +12,7 @@ use App\Models\ClerkBalancing;
 use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class PosController extends Controller
@@ -21,10 +22,11 @@ class PosController extends Controller
         $tables       = RestaurantTable::all()->load('activeOrder.items');
         $categories   = Category::where('status', 'active')->orderBy('sort_order')->get();
         $products     = Product::where('status', 'active')->get();
-        $modules      = auth()->user()->role->modules()->get();
+        $user = Auth::user();
+        $modules = $user ? $user->role->modules()->get() : collect();
         $tierDiscounts = TierDiscount::activeMap(); // ['VIP' => 15.0, 'Moderate' => 10.0, ...]
 
-        $hasOpenShift = ClerkBalancing::where('user_id', auth()->id())
+        $hasOpenShift = ClerkBalancing::where('user_id', Auth::id())
             ->where('status', 'open')
             ->exists();
 
@@ -102,6 +104,8 @@ class PosController extends Controller
 
     public function createOrder(Request $request)
     {
+        $user = Auth::user();
+
         $validated = $request->validate([
             'table_id' => 'nullable|exists:restaurant_tables,id',
             'customer_id' => 'nullable|exists:customers,id',
@@ -120,9 +124,9 @@ class PosController extends Controller
             'customer_id' => $validated['customer_id'] ?? null,
             'customer_name' => $validated['customer_name'] ?? null,
             'customer_phone' => $validated['customer_phone'] ?? null,
-            'user_id' => auth()->id(),
+            'user_id' => Auth::id(),
             'order_type' => $validated['order_type'],
-            'waiter_name' => $validated['waiter_name'] ?? auth()->user()->name,
+            'waiter_name' => $validated['waiter_name'] ?? ($user?->name ?? 'Unknown'),
         ]);
 
         // Only mark table as occupied if it's not already
