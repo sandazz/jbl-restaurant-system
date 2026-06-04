@@ -95,6 +95,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/pos/products', [PosController::class, 'getProducts'])->name('pos.products');
     Route::get('/pos/held-orders', [PosController::class, 'getHeldOrders'])->name('pos.held');
     Route::post('/pos/order/{order}/pay', [PosController::class, 'payOrder'])->name('pos.order.pay');
+    Route::post('/pos/create-customer-quick', [PosController::class, 'createCustomerQuick'])->name('pos.create.customer.quick');
 
     // Stock adjustments
     Route::get('/inventory/adjustments', [StockAdjustmentController::class, 'index'])->name('stock.adjustments.index');
