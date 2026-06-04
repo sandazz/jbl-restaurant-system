@@ -336,7 +336,7 @@
                 </div>
 
                 <!-- Search inputs (hidden when a customer is selected) -->
-                <div id="customerSearchInputs" style="display:grid; grid-template-columns:1fr 1fr; gap:6px; position:relative;">
+                <div id="customerSearchInputs" style="display:grid; grid-template-columns:1fr 1fr 40px; gap:6px; position:relative;">
                     <div style="position:relative;">
                         <input type="text" id="customerName" placeholder="Search name…"
                                autocomplete="off"
@@ -353,6 +353,9 @@
                                onfocus="this.style.borderColor='#3b82f6'"
                                onblur="this.style.borderColor='#bfdbfe'">
                     </div>
+                    <button onclick="openCreateCustomerModal()" title="Create new customer" style="background:#16a34a; color:#fff; border:none; border-radius:6px; padding:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.15s; font-size:13px;">
+                        <i class="fas fa-plus"></i>
+                    </button>
                 </div>
 
                 <!-- Dropdown results (absolutely positioned below the inputs) -->
@@ -544,6 +547,46 @@
         <button onclick="startNewTokenAtTable()" class="btn-primary" style="width:100%; padding:12px;">
             <i class="fas fa-plus" style="margin-right:6px;"></i>Create New Token
         </button>
+    </div>
+</div>
+
+<!-- MODAL: Create New Customer -->
+<div id="createCustomerModal" class="modal-overlay">
+    <div class="modal-box" style="max-width:420px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <div>
+                <h2 style="font-size:18px; font-weight:800; color:#0f172a; margin:0;"><i class="fas fa-user-plus" style="color:#16a34a; margin-right:6px;"></i>New Customer</h2>
+                <p style="font-size:12px; color:#64748b; margin:4px 0 0;">Quick add for POS orders</p>
+            </div>
+            <button onclick="closeModal('createCustomerModal')" style="background:none; border:none; font-size:22px; cursor:pointer; color:#94a3b8;">&times;</button>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
+            <div>
+                <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Title (Optional)</label>
+                <select id="newCustomerTitle" style="width:100%; font-size:11px; border:1.5px solid #e2e8f0; border-radius:6px; padding:6px 8px; background:#fff; outline:none; box-sizing:border-box;">
+                    <option value="">—</option>
+                    <option value="Mr.">Mr.</option>
+                    <option value="Miss">Miss</option>
+                    <option value="Master">Master</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Name <span style="color:#dc2626;">*</span></label>
+                <input type="text" id="newCustomerName" placeholder="Customer name" style="width:100%; font-size:11px; border:1.5px solid #bfdbfe; border-radius:6px; padding:6px 8px; background:#fff; outline:none; box-sizing:border-box;"
+                       onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#bfdbfe'">
+            </div>
+            <div>
+                <label style="font-size:11px; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Phone Number <span style="color:#dc2626;">*</span></label>
+                <input type="tel" id="newCustomerPhone" placeholder="07X XXX XXXX" style="width:100%; font-size:11px; border:1.5px solid #bfdbfe; border-radius:6px; padding:6px 8px; background:#fff; outline:none; box-sizing:border-box;"
+                       onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#bfdbfe'">
+            </div>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <button onclick="closeModal('createCustomerModal')" class="btn-secondary" style="flex:1; padding:10px;">Cancel</button>
+            <button onclick="saveNewCustomer()" class="btn-green" style="flex:1; padding:10px;">
+                <i class="fas fa-check" style="margin-right:4px;"></i>Create & Select
+            </button>
+        </div>
     </div>
 </div>
 
@@ -1690,6 +1733,55 @@
         currentOrder.customer_name  = name;
         currentOrder.customer_phone = phone;
         currentOrder.customer_id    = _selectedCustomerId;
+    }
+
+    function openCreateCustomerModal() {
+        document.getElementById('newCustomerTitle').value = '';
+        document.getElementById('newCustomerName').value = '';
+        document.getElementById('newCustomerPhone').value = '';
+        openModal('createCustomerModal');
+    }
+
+    async function saveNewCustomer() {
+        const title = document.getElementById('newCustomerTitle').value.trim();
+        const name = document.getElementById('newCustomerName').value.trim();
+        const phone = document.getElementById('newCustomerPhone').value.trim();
+
+        if (!name || !phone) {
+            toast('Name and phone number are required', 'error');
+            return;
+        }
+
+        try {
+            showLoading();
+            const res = await fetch('{{ route("pos.create.customer.quick") }}', {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: name,
+                    phone_number: phone,
+                    title: title || null
+                })
+            });
+
+            if (!res.ok) {
+                hideLoading();
+                toast('Failed to create customer', 'error');
+                return;
+            }
+
+            const customer = await res.json();
+            hideLoading();
+            closeModal('createCustomerModal');
+
+            // Auto-select the newly created customer
+            selectCustomer(customer.id, customer.name, customer.phone_number, customer.tier);
+            toast('Customer created and selected', 'success');
+        } catch (e) {
+            console.error('Create customer error:', e);
+            hideLoading();
+            toast('Error creating customer: ' + e.message, 'error');
+        }
     }
 
     // ═══════════════════════════════════════════

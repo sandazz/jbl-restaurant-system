@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\TierDiscount;
 use App\Models\ClerkBalancing;
+use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -616,5 +617,28 @@ class PosController extends Controller
             'total' => (float) $order->total,
             'created_at' => $order->created_at,
         ]));
+    }
+
+    /** POST /pos/create-customer-quick — Create a customer from POS */
+    public function createCustomerQuick(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'phone_number' => 'required|string|max:20',
+            'title' => 'nullable|in:Mr.,Miss,Master',
+        ]);
+
+        $validated['status'] = 'active';
+        $validated['tier'] = 'New';
+
+        $customer = Customer::create($validated);
+
+        return response()->json([
+            'id' => $customer->id,
+            'name' => $customer->formattedName(),
+            'phone_number' => $customer->phone_number,
+            'tier' => $customer->tier,
+            'title' => $customer->title,
+        ]);
     }
 }
