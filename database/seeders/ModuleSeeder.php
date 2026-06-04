@@ -79,7 +79,7 @@ class ModuleSeeder extends Seeder
                 'name' => 'Settings',
                 'description' => 'System settings and configuration',
                 'icon' => 'cog',
-                'route' => 'settings.index',
+                 'route' => 'settings.index',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
