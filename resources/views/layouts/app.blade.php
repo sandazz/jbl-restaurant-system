@@ -96,7 +96,6 @@
             });
         })();
     </script>
-
     <script>
         document.addEventListener('focusin', function (event) {
             const target = event.target;

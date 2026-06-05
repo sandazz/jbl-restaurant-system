@@ -447,6 +447,13 @@
                         <div id="cardPaidDisplay" style="font-size:12px; font-weight:700; color:#0f172a; padding:5px 6px; background:#f8fafc; border-radius:5px; border:1px solid #e2e8f0; text-align:center;">Rs. 0.00</div>
                     </div>
                 </div>
+                <!-- Card amount display -->
+                <div id="cardSection" style="display:none; gap:6px;">
+                    <div style="flex:1;">
+                        <label style="font-size:9px; font-weight:600; color:#64748b; display:block; margin-bottom:2px;">Paid</label>
+                        <div id="cardPaidDisplay" style="font-size:12px; font-weight:700; color:#0f172a; padding:5px 6px; background:#f8fafc; border-radius:5px; border:1px solid #e2e8f0; text-align:center;">Rs. 0.00</div>
+                    </div>
+                </div>
             </div>
 
             <!-- Action buttons -->
@@ -1846,7 +1853,6 @@
 
     function updateChange() {
         if (selectedPaymentMethod !== 'cash') return;
-
         const total     = getTotalDue();
         const paid      = parseFloat(document.getElementById('amountPaid').value) || 0;
         const change    = Math.max(0, paid - total);
@@ -2039,6 +2045,10 @@
             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
         });
         const data = await res.json();
+        if (!res.ok || !data.success) {
+            toast(data.message || 'No new kitchen items to print', 'error');
+            return;
+        }
         document.getElementById('kotOrderNumber').textContent = 'Order #' + data.order_number;
         document.getElementById('kotTableNumber').textContent = kotLocationLabel(data);
         const tokenEl = document.getElementById('kotTokenNumber');
@@ -2059,6 +2069,10 @@
             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
         });
         const data = await res.json();
+        if (!res.ok || !data.success) {
+            toast(data.message || 'No new kitchen items to print', 'error');
+            return;
+        }
         document.getElementById('kotOrderNumber').textContent = 'Order #' + data.order_number;
         document.getElementById('kotTableNumber').textContent = kotLocationLabel(data);
         const tokenEl = document.getElementById('kotTokenNumber');
@@ -2114,6 +2128,7 @@
             + '</div>'
             + '<div class="divider-solid"></div>'
             + '<div class="row sm mt4 mb4"><span class="label">Order:</span><span class="value bold">' + data.order_number + '</span></div>'
+            + (data.table_name ? '<div class="row sm mb4"><span class="label">Table:</span><span class="value bold">' + escapeHtml(data.table_name) + '</span></div>' : '')
             + (data.token_number ? '<div class="row sm mb4"><span class="label">Token:</span><span class="value bold">' + data.token_number + '</span></div>' : '')
             + '<div class="row sm mb4"><span class="label">Time:</span><span class="value">' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) + '</span></div>'
             + '<div class="divider-double"></div>'
@@ -2272,7 +2287,6 @@
         });
         document.getElementById('cashSection').style.display = 'flex';
         document.getElementById('cardSection').style.display = 'none';
-
         document.querySelectorAll('.table-card.expanded').forEach(c => c.classList.remove('expanded'));
         document.querySelectorAll('.table-card.selected').forEach(c => c.classList.remove('selected'));
     }
@@ -2282,14 +2296,15 @@
         body {
             font-family: 'Courier New', Courier, monospace;
             font-size: 11px;
+            font-weight: 900;
             color: #000;
             background: #fff;
             width: 80mm;
             padding: 4mm 3mm 6mm;
         }
         @media print {
-            @page { size: 80mm auto; margin: 0; }
-            body  { padding: 2mm; }
+            @page { size: 80mm auto; margin: 2mm 5mm 2mm 8mm; }
+            body  { width: 100%; padding: 0.5mm 0; }
         }
         .center  { text-align: center; }
         .right   { text-align: right; }
@@ -2308,8 +2323,8 @@
         .row .label { flex: 1; }
         .row .value { white-space: nowrap; padding-left: 8px; }
         .item-name  { flex: 1; word-break: break-word; }
-        .item-qty   { width: 28px; text-align: center; flex-shrink: 0; }
-        .item-amt   { width: 60px; text-align: right; flex-shrink: 0; }
+        .item-qty   { width: 22px; text-align: center; flex-shrink: 0; }
+        .item-amt   { width: 75px; text-align: right; flex-shrink: 0; }
         .mt2  { margin-top: 2px; }
         .mb8  { margin-bottom: 8px; }
         .kot-item {
