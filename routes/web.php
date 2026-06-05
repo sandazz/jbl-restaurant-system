@@ -41,7 +41,8 @@ Route::middleware('auth')->group(function () {
 
     // QR Menu Management (Admin)
     Route::get('/qr-menu/admin', function () {
-        return view('qr-menu.qr-admin');
+        $modules = auth()->user()->role->modules()->get();
+        return view('qr-menu.qr-admin', compact('modules'));
     })->name('qr.admin');
 
     // Customer CRUD routes

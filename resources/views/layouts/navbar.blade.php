@@ -9,8 +9,18 @@
         <!-- Right actions -->
         <div class="navbar-actions">
             <!-- Current page label -->
+            @php
+                $pageTitle = 'Dashboard';
+                if (request()->routeIs('dashboard')) {
+                    $pageTitle = 'Dashboard';
+                } elseif (request()->routeIs('settings.index')) {
+                    $pageTitle = 'Settings';
+                } elseif (request()->segment(1)) {
+                    $pageTitle = ucfirst(str_replace('-', ' ', request()->segment(1)));
+                }
+            @endphp
             <span class="hidden md:block" style="font-size:12px; color:#64748b; font-weight:500; margin-right:6px;">
-                {{ request()->routeIs('dashboard') ? 'Dashboard' : (request()->segment(1) ? ucfirst(str_replace('-', ' ', request()->segment(1))) : '') }}
+                {{ $pageTitle }}
             </span>
 
             <div class="nav-divider hidden sm:block"></div>
