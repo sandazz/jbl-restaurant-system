@@ -565,7 +565,7 @@ class PosController extends Controller
     public function payOrder(Request $request, Order $order)
     {
         $validated = $request->validate([
-            'payment_method' => 'required|in:cash,card,bank_transfer,mixed',
+            'payment_method' => 'required|in:cash,card,bank_transfer,mixed,split',
             'amount_paid'    => 'required|numeric|min:0',
             'discount_type'  => 'nullable|in:percentage,fixed',
             'discount_value' => 'nullable|numeric|min:0',

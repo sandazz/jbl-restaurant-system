@@ -420,6 +420,9 @@
                     <button class="pay-method-btn" data-method="bank_transfer" onclick="selectPaymentMethod('bank_transfer')" style="flex:1; padding:6px 4px; font-size:10px;">
                         <i class="fas fa-university" style="display:block; font-size:13px; margin-bottom:2px;"></i>Bank
                     </button>
+                    <button class="pay-method-btn" data-method="split" onclick="selectPaymentMethod('split')" style="flex:1; padding:6px 4px; font-size:10px;">
+                        <i class="fas fa-sitemap" style="display:block; font-size:13px; margin-bottom:2px;"></i>Split
+                    </button>
                 </div>
                 <!-- Cash amount input -->
                 <div id="cashSection" style="display:flex; flex-direction:column; gap:4px;">
@@ -447,11 +450,31 @@
                         <div id="cardPaidDisplay" style="font-size:12px; font-weight:700; color:#0f172a; padding:5px 6px; background:#f8fafc; border-radius:5px; border:1px solid #e2e8f0; text-align:center;">Rs. 0.00</div>
                     </div>
                 </div>
-                <!-- Card amount display -->
-                <div id="cardSection" style="display:none; gap:6px;">
-                    <div style="flex:1;">
-                        <label style="font-size:9px; font-weight:600; color:#64748b; display:block; margin-bottom:2px;">Paid</label>
-                        <div id="cardPaidDisplay" style="font-size:12px; font-weight:700; color:#0f172a; padding:5px 6px; background:#f8fafc; border-radius:5px; border:1px solid #e2e8f0; text-align:center;">Rs. 0.00</div>
+                <!-- Split payment section -->
+                <div id="splitSection" style="display:none; flex-direction:column; gap:4px;">
+                    <div style="display:flex; gap:6px;">
+                        <div style="flex:1;">
+                            <label style="font-size:9px; font-weight:600; color:#64748b; display:block; margin-bottom:2px;">Cash</label>
+                            <input type="number" id="splitCashAmount" placeholder="0.00" min="0" oninput="updateSplitTotal()"
+                                   style="width:100%; font-size:11px; font-weight:700; border:1.5px solid #e2e8f0; border-radius:5px; padding:5px 6px; outline:none; box-sizing:border-box;"
+                                   onfocus="this.style.borderColor='#dc2626'" onblur="this.style.borderColor='#e2e8f0'">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="font-size:9px; font-weight:600; color:#64748b; display:block; margin-bottom:2px;">Card</label>
+                            <input type="number" id="splitCardAmount" placeholder="0.00" min="0" oninput="updateSplitTotal()"
+                                   style="width:100%; font-size:11px; font-weight:700; border:1.5px solid #e2e8f0; border-radius:5px; padding:5px 6px; outline:none; box-sizing:border-box;"
+                                   onfocus="this.style.borderColor='#dc2626'" onblur="this.style.borderColor='#e2e8f0'">
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <div style="flex:1;">
+                            <label style="font-size:9px; font-weight:600; color:#64748b; display:block; margin-bottom:2px;">Total Paid</label>
+                            <div id="splitTotalDisplay" style="font-size:12px; font-weight:700; color:#0f172a; padding:5px 6px; background:#f8fafc; border-radius:5px; border:1px solid #e2e8f0; text-align:center;">Rs. 0.00</div>
+                        </div>
+                    </div>
+                    <div id="splitError" style="display:none; font-size:10px; font-weight:600; color:#dc2626; padding:3px 4px; background:#fef2f2; border-radius:4px; border:1px solid #fecaca;">
+                        <i class="fas fa-exclamation-circle" style="margin-right:3px;"></i>
+                        <span id="splitErrorText">Total paid must cover the bill amount.</span>
                     </div>
                 </div>
             </div>
@@ -1802,8 +1825,10 @@
         });
         document.getElementById('cashSection').style.display = method === 'cash' ? 'flex' : 'none';
         document.getElementById('cardSection').style.display = method === 'card' ? 'flex' : 'none';
+        document.getElementById('splitSection').style.display = method === 'split' ? 'flex' : 'none';
         if (method !== 'cash') document.getElementById('changeDisplay').textContent = 'Rs. 0.00';
         updateCardPaidDisplay();
+        updateSplitTotal();
     }
 
     function calcDiscount(subtotal) {
@@ -1840,6 +1865,26 @@
         const total = getTotalDue();
         const el = document.getElementById('cardPaidDisplay');
         if (el) el.textContent = 'Rs. ' + total.toFixed(2);
+    }
+
+    function updateSplitTotal() {
+        if (selectedPaymentMethod !== 'split') return;
+        const total = getTotalDue();
+        const cashAmount = parseFloat(document.getElementById('splitCashAmount').value) || 0;
+        const cardAmount = parseFloat(document.getElementById('splitCardAmount').value) || 0;
+        const totalPaid = cashAmount + cardAmount;
+        const totalDisplay = document.getElementById('splitTotalDisplay');
+        const errorEl = document.getElementById('splitError');
+
+        totalDisplay.textContent = 'Rs. ' + totalPaid.toFixed(2);
+
+        if (totalPaid < total) {
+            totalDisplay.style.color = '#dc2626';
+            errorEl.style.display = 'flex';
+        } else {
+            totalDisplay.style.color = '#16a34a';
+            errorEl.style.display = 'none';
+        }
     }
 
     function getAmountBorderColor() {
@@ -1913,8 +1958,26 @@
                 return;
             }
         }
+        if (selectedPaymentMethod === 'split') {
+            const cashAmount = parseFloat(document.getElementById('splitCashAmount').value) || 0;
+            const cardAmount = parseFloat(document.getElementById('splitCardAmount').value) || 0;
+            const totalPaid = cashAmount + cardAmount;
+            if (totalPaid <= 0) {
+                toast('Enter payment amounts for split payment.', 'error');
+                document.getElementById('splitCashAmount').focus();
+                return;
+            }
+            if (totalPaid < total) {
+                const shortfall = (total - totalPaid).toFixed(2);
+                toast('Insufficient amount — short by Rs. ' + shortfall, 'error');
+                updateSplitTotal();
+                return;
+            }
+        }
         const amountPaid  = selectedPaymentMethod === 'cash'
             ? parseFloat(document.getElementById('amountPaid').value)
+            : selectedPaymentMethod === 'split'
+            ? parseFloat(document.getElementById('splitCashAmount').value) + parseFloat(document.getElementById('splitCardAmount').value)
             : total;
 
         const res = await fetch('{{ route("pos.order.pay", ":id") }}'.replace(':id', currentOrder.id), {
@@ -1942,7 +2005,7 @@
     }
 
     function showPaidBill(d) {
-        const methodLabel   = { cash:'Cash', card:'Card', bank_transfer:'Bank Transfer', mixed:'Mixed' };
+        const methodLabel   = { cash:'Cash', card:'Card', bank_transfer:'Bank Transfer', mixed:'Mixed', split:'Split Payment' };
         const locLabel      = (d.order_type && d.order_type !== 'dine_in')
             ? d.order_type.replace('_', ' ').toUpperCase()
             : 'T-' + (d.table_number || '—') + (d.table_name ? ' ' + d.table_name : '');
