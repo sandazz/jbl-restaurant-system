@@ -64,7 +64,7 @@
             <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 space-y-3">
                 <h3 class="font-bold text-lg text-gray-800 flex items-center gap-2">
                     <i class="fas fa-info-circle text-yellow-600"></i>
-                    Recommended Placement
+                    Recommended Placements
                 </h3>
                 <ul class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
                     <li><strong>Table Tents:</strong> Place QR code on all dining tables</li>
