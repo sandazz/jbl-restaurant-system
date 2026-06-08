@@ -542,6 +542,48 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════
+     MODAL: Kitchen Selection (for KOT)
+══════════════════════════════════════════════════ -->
+<div id="kitchenSelectModal" class="modal-overlay">
+    <div class="modal-box" style="max-width:400px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <h2 style="font-size:18px; font-weight:800; color:#0f172a; margin:0;">
+                <i class="fas fa-kitchen-set" style="color:#ea580c; margin-right:6px;"></i>Select Kitchen
+            </h2>
+            <button onclick="closeModal('kitchenSelectModal')" style="background:none; border:none; font-size:22px; cursor:pointer; color:#94a3b8;">&times;</button>
+        </div>
+        <p style="font-size:12px; color:#64748b; margin:0 0 16px;">Choose which kitchen should receive this order ticket.</p>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <button onclick="sendKotToKitchen(1)"
+                    style="padding:18px 12px; background:#fef2f2; border:2px solid #fecaca; border-radius:10px; cursor:pointer; text-align:center; transition:all 0.15s;"
+                    onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">
+                <i class="fas fa-fire-burner" style="font-size:22px; color:#dc2626; display:block; margin-bottom:6px;"></i>
+                <span style="font-size:13px; font-weight:800; color:#dc2626;">Kitchen 1</span>
+            </button>
+            <button onclick="sendKotToKitchen(2)"
+                    style="padding:18px 12px; background:#fffbeb; border:2px solid #fde68a; border-radius:10px; cursor:pointer; text-align:center; transition:all 0.15s;"
+                    onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fffbeb'">
+                <i class="fas fa-fire-burner" style="font-size:22px; color:#d97706; display:block; margin-bottom:6px;"></i>
+                <span style="font-size:13px; font-weight:800; color:#d97706;">Kitchen 2</span>
+            </button>
+            <button onclick="sendKotToKitchen(3)"
+                    style="padding:18px 12px; background:#f0fdf4; border:2px solid #bbf7d0; border-radius:10px; cursor:pointer; text-align:center; transition:all 0.15s;"
+                    onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">
+                <i class="fas fa-fire-burner" style="font-size:22px; color:#16a34a; display:block; margin-bottom:6px;"></i>
+                <span style="font-size:13px; font-weight:800; color:#16a34a;">Kitchen 3</span>
+            </button>
+            <button onclick="sendKotToKitchen(4)"
+                    style="padding:18px 12px; background:#eff6ff; border:2px solid #bfdbfe; border-radius:10px; cursor:pointer; text-align:center; transition:all 0.15s;"
+                    onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">
+                <i class="fas fa-fire-burner" style="font-size:22px; color:#2563eb; display:block; margin-bottom:6px;"></i>
+                <span style="font-size:13px; font-weight:800; color:#2563eb;">Kitchen 4</span>
+            </button>
+        </div>
+        <button onclick="closeModal('kitchenSelectModal')" class="btn-secondary" style="width:100%; margin-top:14px; padding:10px;">Cancel</button>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
      MODAL: Held Orders
 ══════════════════════════════════════════════════ -->
 <div id="heldOrdersModal" class="modal-overlay">
@@ -641,6 +683,7 @@
     let selectedPaymentMethod = 'cash';
     let currentKotContent     = '';
     let currentBillContent    = '';
+    let pendingKotOrderId     = null;
     let tableFilter           = 'all';
     let currentCategoryId      = 0;
     let selectedTableForTokens = null;
@@ -2113,34 +2156,29 @@
     // KOT
     // ═══════════════════════════════════════════
 
-    async function printKot() {
+    function printKot() {
         if (!currentOrder || !currentOrder.id) { toast('No active order', 'error'); return; }
-        const res  = await fetch('{{ route("pos.order.kot", ":id") }}'.replace(':id', currentOrder.id), {
-            method: 'POST',
-            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
-        });
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-            toast(data.message || 'No new kitchen items to print', 'error');
-            return;
-        }
-        document.getElementById('kotOrderNumber').textContent = 'Order #' + data.order_number;
-        document.getElementById('kotTableNumber').textContent = kotLocationLabel(data);
-        const tokenEl = document.getElementById('kotTokenNumber');
-        if (data.token_number) {
-            tokenEl.textContent = 'Token: ' + data.token_number;
-            tokenEl.style.display = 'block';
-        } else {
-            tokenEl.style.display = 'none';
-        }
-        renderKotItems(data.items);
-        currentKotContent = buildKotHtml(data);
-        openModal('kotModal');
+        pendingKotOrderId = currentOrder.id;
+        openModal('kitchenSelectModal');
     }
 
-    async function printKotForTable(orderId) {
-        const res  = await fetch('{{ route("pos.order.kot", ":id") }}'.replace(':id', orderId), {
-            method: 'POST',
+    function printKotForTable(orderId) {
+        pendingKotOrderId = orderId;
+        openModal('kitchenSelectModal');
+    }
+
+    const KITCHEN_NAMES = ['Kitchen 1', 'Kitchen 2', 'Kitchen 3', 'Kitchen 4'];
+
+    async function sendKotToKitchen(kitchenNumber) {
+        closeModal('kitchenSelectModal');
+        if (!pendingKotOrderId) { toast('No order selected', 'error'); return; }
+
+        const kitchenName = KITCHEN_NAMES[kitchenNumber - 1] || ('Kitchen ' + kitchenNumber);
+        const orderId     = pendingKotOrderId;
+        pendingKotOrderId = null;
+
+        const res = await fetch('{{ route("pos.order.kot", ":id") }}'.replace(':id', orderId), {
+            method:  'POST',
             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
         });
         const data = await res.json();
@@ -2148,18 +2186,11 @@
             toast(data.message || 'No new kitchen items to print', 'error');
             return;
         }
-        document.getElementById('kotOrderNumber').textContent = 'Order #' + data.order_number;
-        document.getElementById('kotTableNumber').textContent = kotLocationLabel(data);
-        const tokenEl = document.getElementById('kotTokenNumber');
-        if (data.token_number) {
-            tokenEl.textContent = 'Token: ' + data.token_number;
-            tokenEl.style.display = 'block';
-        } else {
-            tokenEl.style.display = 'none';
-        }
-        renderKotItems(data.items);
-        currentKotContent = buildKotHtml(data);
-        openModal('kotModal');
+
+        const kotHtml     = buildKotHtml(data, kitchenName);
+        currentKotContent = kotHtml;
+        printReceipt(kotHtml);
+        toast('KOT sent to ' + kitchenName, 'success');
     }
 
     function renderKotItems(items) {
@@ -2183,7 +2214,7 @@
         return 'TABLE ' + (data.table_number || '—');
     }
 
-    function buildKotHtml(data) {
+    function buildKotHtml(data, kitchenName) {
         const itemCount = data.items.reduce(function(s, i) { return s + i.quantity; }, 0);
         const locLabel  = kotLocationLabel(data);
 
@@ -2197,9 +2228,15 @@
                     : '');
         }).join('');
 
+        const kitchenBanner = kitchenName
+            ? '<div class="bold" style="font-size:15px; margin-top:6px; background:#000; color:#fff; padding:4px 12px; display:inline-block; letter-spacing:0.05em;">'
+                + kitchenName.toUpperCase() + '</div>'
+            : '';
+
         return '<div class="center mb8">'
             + '<div class="bold xl">KITCHEN ORDER</div>'
-            + '<div class="bold" style="font-size:13px; margin-top:4px; background:#000; color:#fff; padding:3px 10px; display:inline-block;">' + locLabel + '</div>'
+            + '<div class="bold" style="font-size:13px; margin-top:4px; background:#555; color:#fff; padding:3px 10px; display:inline-block;">' + locLabel + '</div>'
+            + kitchenBanner
             + '</div>'
             + '<div class="divider-solid"></div>'
             + '<div class="row sm mt4 mb4"><span class="label">Order:</span><span class="value bold">' + data.order_number + '</span></div>'
