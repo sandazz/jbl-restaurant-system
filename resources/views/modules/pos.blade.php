@@ -219,15 +219,11 @@
         <div style="padding: 16px; border-bottom: 1px solid #e2e8f0; flex-shrink: 0;">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
                 <h2 style="font-size:16px; font-weight:800; color:#0f172a; margin:0;">
-                    <i class="fas fa-chair" style="color:#dc2626; margin-right:6px;"></i>Tables
+                    <i class="fas fa-ticket-alt" style="color:#dc2626; margin-right:6px;"></i>Tokens
                 </h2>
-                <span id="tableStatusBadge" style="font-size:11px; color:#64748b; font-weight:600;"></span>
-            </div>
-            <!-- Legend -->
-            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
-                <span style="font-size:10px; font-weight:600; color:#16a34a;"><span class="table-status-dot dot-available"></span>Free</span>
-                <span style="font-size:10px; font-weight:600; color:#dc2626;"><span class="table-status-dot dot-occupied"></span>Occupied</span>
-                <span style="font-size:10px; font-weight:600; color:#d97706;"><span class="table-status-dot dot-reserved"></span>Reserved</span>
+                <button onclick="loadOrderHistory()" title="View order history" style="background:#f3f4f6; color:#6b7280; border:none; border-radius:6px; padding:6px 8px; cursor:pointer; font-size:11px; font-weight:600; transition:all 0.2s;" onmouseover="this.style.background='#e5e7eb'; this.style.color='#374151';" onmouseout="this.style.background='#f3f4f6'; this.style.color='#6b7280';">
+                    <i class="fas fa-history" style="margin-right:4px;"></i>History
+                </button>
             </div>
             <!-- Filter tabs -->
             <div style="display:flex; gap:6px; margin-bottom:10px;">
@@ -235,15 +231,20 @@
                 <button onclick="filterTables('main', this)" class="cat-pill" style="padding:4px 12px;">Main</button>
                 <button onclick="filterTables('vip', this)" class="cat-pill" style="padding:4px 12px;">VIP</button>
             </div>
-            <!-- Takeaway Order Button -->
-            <button onclick="startTakeawayOrder()" class="btn-primary" style="width:100%; padding:10px; font-size:12px; font-weight:700;">
-                <i class="fas fa-shopping-bag" style="margin-right:6px;"></i>Takeaway Order
-            </button>
+            <!-- Buttons Row -->
+            <div style="display:flex; gap:8px;">
+                <button onclick="createQuickToken()" class="btn-primary" style="flex:1; padding:10px; font-size:12px; font-weight:700;">
+                    <i class="fas fa-plus" style="margin-right:4px;"></i>New Token
+                </button>
+                <button onclick="startTakeawayOrder()" class="btn-primary" style="flex:1; padding:10px; font-size:12px; font-weight:700;">
+                    <i class="fas fa-shopping-bag" style="margin-right:4px;"></i>Takeaway
+                </button>
+            </div>
         </div>
 
-        <!-- Tables list -->
-        <div style="flex:1; overflow-y:auto; padding:12px; display:grid; grid-template-columns: repeat(2, 1fr); gap: 10px; align-content: start;" id="tablesContainer">
-            <p style="grid-column:1/-1; text-align:center; color:#94a3b8; padding:32px 0; font-size:13px;">Loading tables…</p>
+        <!-- Tokens list -->
+        <div style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap: 8px;" id="tablesContainer">
+            <p style="text-align:center; color:#94a3b8; padding:32px 12px; font-size:13px;">Loading tokens…</p>
         </div>
 
     </div>
@@ -638,6 +639,80 @@
     </div>
 </div>
 
+<!-- Order History Modal -->
+<div id="orderHistoryModal" class="modal-overlay">
+    <div class="modal-box" style="max-width:600px; max-height:90vh;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 style="font-size:18px; font-weight:800; color:#0f172a; margin:0;"><i class="fas fa-history" style="color:#3b82f6; margin-right:6px;"></i>Order History</h2>
+            <button onclick="closeModal('orderHistoryModal')" style="background:none; border:none; font-size:22px; cursor:pointer; color:#94a3b8;">&times;</button>
+        </div>
+        <div id="orderHistoryList" style="display:flex; flex-direction:column; gap:12px; max-height:calc(90vh - 120px); overflow-y:auto;"></div>
+    </div>
+</div>
+
+<!-- Order Details Modal (for viewing items and reprinting) -->
+<div id="orderDetailsModal" class="modal-overlay">
+    <div class="modal-box" style="max-width:500px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <div>
+                <h2 style="font-size:18px; font-weight:800; color:#0f172a; margin:0;"><i class="fas fa-receipt" style="color:#3b82f6; margin-right:6px;"></i>Order Details</h2>
+                <p style="font-size:11px; color:#64748b; margin:4px 0 0;" id="orderDetailsOrderNum">—</p>
+            </div>
+            <button onclick="closeModal('orderDetailsModal')" style="background:none; border:none; font-size:22px; cursor:pointer; color:#94a3b8;">&times;</button>
+        </div>
+
+        <!-- Order Info -->
+        <div style="background:#f8fafc; border-radius:10px; padding:12px; margin-bottom:16px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:12px;">
+                <div>
+                    <p style="color:#64748b; margin:0 0 3px; font-weight:600;">Type</p>
+                    <p style="color:#0f172a; margin:0; font-weight:700;" id="orderDetailsType">—</p>
+                </div>
+                <div>
+                    <p style="color:#64748b; margin:0 0 3px; font-weight:600;">Payment Method</p>
+                    <p style="color:#0f172a; margin:0; font-weight:700; text-transform:capitalize;" id="orderDetailsPayment">—</p>
+                </div>
+                <div>
+                    <p style="color:#64748b; margin:0 0 3px; font-weight:600;">Customer</p>
+                    <p style="color:#0f172a; margin:0; font-weight:700;" id="orderDetailsCustomer">—</p>
+                </div>
+                <div>
+                    <p style="color:#64748b; margin:0 0 3px; font-weight:600;">Date</p>
+                    <p style="color:#0f172a; margin:0; font-weight:700;" id="orderDetailsDate">—</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Menu Items -->
+        <div style="margin-bottom:16px;">
+            <h3 style="font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; margin:0 0 10px; letter-spacing:0.05em;">Menu Items</h3>
+            <div id="orderDetailsItems" style="background:#fff; border:1.5px solid #e2e8f0; border-radius:10px; display:flex; flex-direction:column; gap:8px; padding:12px;"></div>
+        </div>
+
+        <!-- Totals -->
+        <div style="background:#f8fafc; border-radius:10px; padding:12px; margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:6px;">
+                <span style="color:#64748b;">Subtotal</span>
+                <span style="font-weight:600; color:#374151;" id="orderDetailsSubtotal">Rs. 0.00</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:6px;">
+                <span style="color:#64748b;">Discount</span>
+                <span style="font-weight:600; color:#ef4444;" id="orderDetailsDiscount">Rs. 0.00</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:700; padding-top:6px; border-top:2px solid #e2e8f0;">
+                <span style="color:#0f172a;">Total</span>
+                <span style="color:#dc2626;" id="orderDetailsTotal">Rs. 0.00</span>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div style="display:flex; gap:10px;">
+            <button onclick="closeModal('orderDetailsModal')" class="btn-secondary" style="flex:1;">Close</button>
+            <button onclick="reprintOrderBill()" class="btn-blue" style="flex:1;"><i class="fas fa-print" style="margin-right:4px;"></i>Reprint Bill</button>
+        </div>
+    </div>
+</div>
+
 <script>
     // ── State ──
     let currentOrder  = null;
@@ -673,19 +748,20 @@
 
     async function loadTables() {
         try {
-            const res = await fetch('{{ route("pos.tables") }}');
-            if (!res.ok) { toast('Failed to load tables', 'error'); return; }
+            // Load tokens list
+            const res = await fetch('{{ route("pos.tokens") }}');
+            if (!res.ok) { toast('Failed to load tokens', 'error'); return; }
             allTables = await res.json();
             renderTables();
             updateTableStatusBadge();
         } catch (e) {
-            console.error('Load tables error:', e);
-            toast('Error loading tables', 'error');
+            console.error('Load tokens error:', e);
+            toast('Error loading tokens', 'error');
         }
     }
 
     function updateTableStatusBadge() {
-        const occupied = allTables.filter(t => t.status === 'occupied').length;
+        const occupied = allTables.filter(t => t.total > 0).length;
         const total    = allTables.length;
         document.getElementById('tableStatusBadge').textContent = occupied + '/' + total + ' occupied';
     }
@@ -746,52 +822,34 @@
 
     function renderTables() {
         const container = document.getElementById('tablesContainer');
+
+        // allTables now contains tokens directly from getTokens() API
         const filtered  = tableFilter === 'all'
             ? allTables
             : allTables.filter(t => t.section === tableFilter);
 
-        if (filtered.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color:#94a3b8; padding:32px 0; font-size:13px;">No tables found</p>';
+        if (!allTables || allTables.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:#94a3b8; padding:32px 12px; font-size:13px;">No active tokens</p>';
             return;
         }
 
-        container.innerHTML = filtered.map(function(table) {
+        // Render tokens - single column list
+        container.innerHTML = allTables.map(function(token) {
+            const clickFn = 'selectTokenOrder(' + token.order_id + ')';
+            const isSelected = currentOrder && currentOrder.id === token.order_id;
 
-            const isOccupied = table.status === 'occupied' || table.status === 'reserved';
-            const isSelected = currentTable && currentTable.id === table.id;
+            const customerInfo = token.customer_name ? escapeHtml(token.customer_name) : (token.table_number ? 'Table ' + token.table_number : 'Customer');
 
-            // Token badge - show count of active tokens
-            let tokenBadge = '';
-            if (table.active_tokens && table.active_tokens.length > 0) {
-                tokenBadge = '<div style="font-size:12px; font-weight:800; color:#7c3aed; margin-top:6px;">'
-                    + '<i class="fas fa-ticket-alt" style="font-size:10px;"></i> '
-                    + table.active_tokens.length + ' token' + (table.active_tokens.length !== 1 ? 's' : '')
-                    + '</div>';
-            }
-
-            let actionBar = '';
-            // Show KOT button only when single token exists
-            if (table.has_order && table.active_tokens && table.active_tokens.length === 1) {
-                actionBar = '<div class="table-card-actions">'
-                    + '<button onclick="printKotForTable(' + table.active_tokens[0].order_id + '); event.stopPropagation();" '
-                    + 'style="flex:1; font-size:11px; font-weight:700; background:#ea580c; color:#fff; border:none; border-radius:7px; padding:6px 4px; cursor:pointer;">'
-                    + '<i class="fas fa-print" style="margin-right:3px;"></i>KOT</button>'
-                    + '</div>';
-            }
-
-            // ALL tables open token modal on click
-            let clickFn = 'showTokenSelectionModal(' + table.id + ')';
-
-            const vipBadge = table.section === 'vip'
-                ? '<div style="position:absolute; top:6px; left:6px; font-size:9px; font-weight:800; background:#7c3aed; color:#fff; padding:2px 6px; border-radius:6px;">VIP</div>'
-                : '';
-
-            return '<div id="tc-' + table.id + '" class="table-card ' + table.status + (isSelected ? ' selected' : '') + '" onclick="' + clickFn + '">'
-                + vipBadge
-                + '<div style="font-size:20px; font-weight:900; color:#0f172a; line-height:1;">' + table.table_number + '</div>'
-                + '<div style="font-size:11px; font-weight:600; color:#64748b; margin-top:2px;">' + escapeHtml(table.name) + '</div>'
-                + '<div style="font-size:10px; color:#94a3b8;">Cap: ' + table.capacity + '</div>'
-                + tokenBadge + actionBar
+            return '<div class="table-card" onclick="' + clickFn + '" style="cursor:pointer; padding:14px 12px; text-align:left; background:linear-gradient(135deg,#f0f9ff,#e0f2fe); border:2px solid #0284c7; border-radius:10px; transition:all 0.2s; ' + (isSelected ? 'border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.15);' : '') + '" onmouseover="this.style.background=\'#e0f2fe\'; this.style.borderColor=\'#0369a1\';" onmouseout="this.style.background=\'linear-gradient(135deg,#f0f9ff,#e0f2fe)\'; this.style.borderColor=\'#0284c7\';">'
+                + '<div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">'
+                + '<div style="flex:1;">'
+                + '<div style="font-size:18px; font-weight:900; color:#0c4a6e; display:flex; align-items:center; margin-bottom:4px;"><i class="fas fa-ticket-alt" style="margin-right:6px; font-size:16px;"></i>' + escapeHtml(token.token_number) + '</div>'
+                + '<div style="font-size:12px; color:#64748b; font-weight:600;">' + customerInfo + '</div>'
+                + '</div>'
+                + '<div style="text-align:right; flex-shrink:0;">'
+                + '<div style="font-size:13px; font-weight:800; color:#0c4a6e;">Rs. ' + token.total.toFixed(2) + '</div>'
+                + '</div>'
+                + '</div>'
                 + '</div>';
         }).join('');
 
@@ -910,6 +968,31 @@
         toast('Table ' + table.table_number + ' opened', 'success');
     }
 
+    function showTableSelectionForNewToken() {
+        if (!hasOpenShift) {
+            showShiftAlert();
+            return;
+        }
+        const list = document.getElementById('tokenSelectList');
+
+        // Show all tables to select from for new token
+        list.innerHTML = allTables.map(table => {
+            return '<button onclick="selectedTableForTokens=' + table.id + '; startNewTokenAtTable();" '
+                + 'style="padding:16px; border:2px solid #0284c7; border-radius:12px; background:linear-gradient(135deg,#f0f9ff,#e0f2fe); cursor:pointer; transition:all 0.2s; width:100%; text-align:left;" '
+                + 'onmouseover="this.style.borderColor=\'#0369a1\'; this.style.background=\'#e0f2fe\';" '
+                + 'onmouseout="this.style.borderColor=\'#0284c7\'; this.style.background=\'linear-gradient(135deg,#f0f9ff,#e0f2fe)\';">'
+                + '<div style="display:flex; justify-content:space-between; align-items:center;">'
+                + '<div style="text-align:left;">'
+                + '<p style="font-size:16px; font-weight:900; color:#0c4a6e; margin:0;">Table ' + table.table_number + '</p>'
+                + '<p style="font-size:12px; color:#64748b; margin:4px 0 0;">' + escapeHtml(table.name) + ' • Cap: ' + table.capacity + '</p>'
+                + '</div>'
+                + '<span style="font-size:12px; font-weight:700; color:#0c4a6e;">➕</span>'
+                + '</div>'
+                + '</button>';
+        }).join('');
+        openModal('tokenSelectModal');
+    }
+
     function showTokenSelectionModal(tableId) {
         const table = allTables.find(t => t.id === tableId);
         if (!table) {
@@ -942,6 +1025,10 @@
 
         list.innerHTML = tokensHtml;
         openModal('tokenSelectModal');
+    }
+
+    function selectTokenOrder(orderId) {
+        selectTokenAndLoadOrder(orderId);
     }
 
     async function selectTokenAndLoadOrder(orderId) {
@@ -979,6 +1066,56 @@
             hideLoading();
             toast('Error loading order', 'error');
         }
+    }
+
+    async function createQuickToken() {
+        if (!hasOpenShift) {
+            showShiftAlert();
+            return;
+        }
+
+        showLoading();
+
+        const res = await fetch('{{ route("pos.order.create") }}', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                order_type: 'dine_in'
+            })
+        });
+
+        if (!res.ok) {
+            hideLoading();
+            toast('Failed to create new token', 'error');
+            return;
+        }
+
+        const data = await res.json();
+        currentOrder = {
+            id: data.order_id,
+            order_number: data.order_number,
+            token_number: data.token_number,
+            items: [],
+            subtotal: 0,
+            total: 0,
+            discount_amount: 0,
+            live_bill_enabled: false,
+            customer_name: null,
+            customer_phone: null,
+            table_id: null,
+        };
+
+        document.getElementById('discountType').value = '';
+        document.getElementById('discountValue').value = '';
+        const discountBadge = document.getElementById('tierDiscountBadge');
+        if (discountBadge) discountBadge.style.display = 'none';
+
+        renderTableView();
+        renderBill();
+        hideLoading();
+        toast('Token ' + data.token_number + ' created!', 'success');
+        // Load tables list asynchronously so it doesn't interfere with order entry
+        setTimeout(function() { loadTables(); }, 500);
     }
 
     async function startNewTokenAtTable() {
@@ -1257,13 +1394,13 @@
             return;
         }
         if (!currentOrder || !currentOrder.id) {
-            toast('Please select a table or create a takeaway order first', 'error');
+            toast('Please select or create a token first', 'error');
             return;
         }
 
         // Verify order is valid before adding items
         if (!currentOrder || !currentOrder.id || !Array.isArray(currentOrder.items)) {
-            toast('No active order. Please create an order first.', 'error');
+            toast('No active order. Please create a token first.', 'error');
             return;
         }
 
@@ -1288,6 +1425,7 @@
         });
         const data = await res.json().catch(function() { return {}; });
         if (!res.ok || !data.success) {
+            console.error('Add item failed:', data);
             toast(data.message || 'Failed to add item to order', 'error');
             await syncOrder();
             await refreshProducts();
@@ -1295,20 +1433,88 @@
         }
         applyProductStockUpdate(data.product);
         await syncOrder();
+        await loadTables();  // Refresh token list to show updated total
     }
 
     async function syncOrder() {
         try {
             if (!currentOrder || !currentOrder.id) return;
             const res = await fetch('{{ route("pos.order.show", ":id") }}'.replace(':id', currentOrder.id));
-            if (!res.ok) return;
-            currentOrder = await res.json();
+            if (!res.ok) {
+                console.error('Sync failed:', res.status);
+                return;
+            }
+            const data = await res.json();
+            currentOrder = data;
             renderBill();
+            renderTableView();
         } catch (e) {
             console.error('Sync order error:', e);
         }
     }
 
+    // Increase quantity by index (works for items with or without ID)
+    async function increaseQtyByIndex(index) {
+        if (!currentOrder || !currentOrder.items || !currentOrder.items[index]) return;
+        const item = currentOrder.items[index];
+        item.quantity++;
+        item.subtotal = item.unit_price * item.quantity;
+        recalcOrderTotals();
+        renderBill();
+
+        // If item has an ID, sync with server
+        if (item.id) {
+            const res = await fetch('{{ route("pos.item.update", [":id", ":item"]) }}'.replace(':id', currentOrder.id).replace(':item', item.id), {
+                method: 'PUT',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quantity: item.quantity })
+            });
+            const data = await res.json().catch(function() { return {}; });
+            if (!res.ok || !data.success) {
+                toast(data.message || 'Failed to update item', 'error');
+                await syncOrder();
+                await refreshProducts();
+                return;
+            }
+            applyProductStockUpdate(data.product);
+            await syncOrder();
+            // Update token list to show new total
+            await loadTables();
+        }
+    }
+
+    // Decrease quantity by index (works for items with or without ID)
+    async function decreaseQtyByIndex(index) {
+        if (!currentOrder || !currentOrder.items || !currentOrder.items[index]) return;
+        const item = currentOrder.items[index];
+        if (item.quantity <= 1) return;
+        item.quantity--;
+        item.subtotal = item.unit_price * item.quantity;
+        recalcOrderTotals();
+        renderBill();
+
+        // If item has an ID, sync with server
+        if (item.id) {
+            const res = await fetch('{{ route("pos.item.update", [":id", ":item"]) }}'.replace(':id', currentOrder.id).replace(':item', item.id), {
+                method: 'PUT',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quantity: item.quantity })
+            });
+            const data = await res.json().catch(function() { return {}; });
+            if (!res.ok || !data.success) {
+                toast(data.message || 'Failed to update item', 'error');
+                await syncOrder();
+                await refreshProducts();
+                return;
+            }
+            applyProductStockUpdate(data.product);
+            await syncOrder();
+            // Update token list to show new total
+            await loadTables();
+        }
+    }
+
+    // Original functions kept for backward compatibility
     async function increaseQty(itemId) {
         const item = currentOrder.items.find(function(i) { return i.id === itemId; });
         if (!item) return;
@@ -1330,6 +1536,7 @@
         }
         applyProductStockUpdate(data.product);
         await syncOrder();
+        await loadTables();  // Update token list
     }
 
     async function decreaseQty(itemId) {
@@ -1353,6 +1560,37 @@
         }
         applyProductStockUpdate(data.product);
         await syncOrder();
+        await loadTables();  // Update token list
+    }
+
+    // Remove item by array index (works for items with or without ID)
+    async function removeItemByIndex(index) {
+        if (!currentOrder || !currentOrder.items || !currentOrder.items[index]) return;
+        const item = currentOrder.items[index];
+
+        // Remove from UI immediately
+        currentOrder.items.splice(index, 1);
+        recalcOrderTotals();
+        renderBill();
+
+        // If item has an ID, remove from server
+        if (item.id) {
+            const res = await fetch('{{ route("pos.item.remove", [":id", ":item"]) }}'.replace(':id', currentOrder.id).replace(':item', item.id), {
+                method: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+            });
+            const data = await res.json().catch(function() { return {}; });
+            if (!res.ok || !data.success) {
+                toast(data.message || 'Failed to remove item', 'error');
+                await syncOrder();
+                await refreshProducts();
+                return;
+            }
+            applyProductStockUpdate(data.product);
+            await syncOrder();
+            // Update token list to show new total
+            await loadTables();
+        }
     }
 
     async function removeItem(itemId) {
@@ -1514,19 +1752,19 @@
             document.getElementById('billItems').innerHTML =
                 '<p style="text-align:center; color:#94a3b8; font-size:13px; padding:32px 0;"><i class="fas fa-plus-circle" style="display:block; font-size:24px; margin-bottom:8px;"></i>No items yet — tap a product</p>';
         } else {
-            document.getElementById('billItems').innerHTML = currentOrder.items.map(function(item) {
+            document.getElementById('billItems').innerHTML = currentOrder.items.map(function(item, index) {
                 const noteHtml = item.kitchen_notes
                     ? '<p style="font-size:10px; color:#f59e0b; margin:2px 0 0;"><i class="fas fa-note-sticky" style="margin-right:3px;"></i>' + escapeHtml(item.kitchen_notes) + '</p>'
                     : '';
+
+                // Allow remove button for items with ID
                 const removeBtn = item.id
                     ? '<button onclick="removeItem(' + item.id + ')" style="font-size:10px; color:#ef4444; background:none; border:none; cursor:pointer; padding:0; margin-top:3px;"><i class="fas fa-trash"></i> Remove</button>'
-                    : '';
-                const decBtn = item.id
-                    ? '<button class="qty-btn" onclick="decreaseQty(' + item.id + ')">−</button>'
-                    : '<button class="qty-btn" style="opacity:0.4;" disabled>−</button>';
-                const incBtn = item.id
-                    ? '<button class="qty-btn" onclick="increaseQty(' + item.id + ')">+</button>'
-                    : '<button class="qty-btn" style="opacity:0.4;" disabled>+</button>';
+                    : '<button onclick="removeItemByIndex(' + index + ')" style="font-size:10px; color:#ef4444; background:none; border:none; cursor:pointer; padding:0; margin-top:3px;"><i class="fas fa-trash"></i> Remove</button>';
+
+                // Allow quantity buttons for all items (with or without ID)
+                const decBtn = '<button class="qty-btn" onclick="decreaseQtyByIndex(' + index + ')">−</button>';
+                const incBtn = '<button class="qty-btn" onclick="increaseQtyByIndex(' + index + ')">+</button>';
 
                 let thumbHtml = '';
                 if (item.image) {
@@ -2517,6 +2755,178 @@
     }
 
     window.addEventListener('load', initPos);
+
+    // ═══════════════════════════════════════════
+    // ORDER HISTORY
+    // ═══════════════════════════════════════════
+
+    let currentOrderForDetails = null;
+
+    async function loadOrderHistory() {
+        try {
+            showLoading();
+            const res = await fetch('{{ route("pos.order.history") }}');
+            if (!res.ok) {
+                toast('Failed to load order history', 'error');
+                hideLoading();
+                return;
+            }
+            const data = await res.json();
+            renderOrderHistory(data.data || []);
+            openModal('orderHistoryModal');
+            hideLoading();
+        } catch (e) {
+            console.error('Load order history error:', e);
+            hideLoading();
+            toast('Error loading order history', 'error');
+        }
+    }
+
+    function renderOrderHistory(orders) {
+        const container = document.getElementById('orderHistoryList');
+        if (!orders || orders.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:#94a3b8; padding:32px 12px; font-size:13px;">No completed orders</p>';
+            return;
+        }
+
+        container.innerHTML = orders.map(order => {
+            const printedDate = new Date(order.printed_at).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            return '<div style="padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; cursor:pointer; transition:all 0.2s; background:#fff;" onclick="viewOrderDetails(' + order.id + ')" onmouseover="this.style.borderColor=\'#3b82f6\'; this.style.boxShadow=\'0 4px 12px rgba(59,130,246,0.15)\';" onmouseout="this.style.borderColor=\'#e2e8f0\'; this.style.boxShadow=\'none\';">'
+                + '<div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:8px;">'
+                + '<div>'
+                + '<p style="font-size:13px; font-weight:700; color:#0f172a; margin:0;">' + escapeHtml(order.order_number) + '</p>'
+                + '<p style="font-size:11px; color:#64748b; margin:2px 0 0;">' + printedDate + '</p>'
+                + '</div>'
+                + '<span style="font-size:13px; font-weight:800; color:#dc2626;">Rs. ' + order.total.toFixed(2) + '</span>'
+                + '</div>'
+                + '<div style="display:flex; gap:8px; align-items:center; font-size:11px;">'
+                + (order.customer_name ? '<span style="background:#eff6ff; color:#1d4ed8; padding:2px 8px; border-radius:4px; font-weight:600;">' + escapeHtml(order.customer_name) + '</span>' : '')
+                + '<span style="background:#f0fdf4; color:#166534; padding:2px 8px; border-radius:4px; font-weight:600; text-transform:capitalize;">' + (order.payment_method || 'cash').replace('_', ' ') + '</span>'
+                + '<span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:4px; font-weight:600;">' + order.items.length + ' items</span>'
+                + '</div>'
+                + '</div>';
+        }).join('');
+    }
+
+    async function viewOrderDetails(orderId) {
+        try {
+            showLoading();
+            const res = await fetch('{{ route("pos.order.show", ":id") }}'.replace(':id', orderId));
+            if (!res.ok) {
+                toast('Failed to load order details', 'error');
+                hideLoading();
+                return;
+            }
+            const order = await res.json();
+            currentOrderForDetails = order;
+            renderOrderDetails(order);
+            closeModal('orderHistoryModal');
+            openModal('orderDetailsModal');
+            hideLoading();
+        } catch (e) {
+            console.error('View order details error:', e);
+            hideLoading();
+            toast('Error loading order details', 'error');
+        }
+    }
+
+    function renderOrderDetails(order) {
+        document.getElementById('orderDetailsOrderNum').textContent = order.order_number;
+        document.getElementById('orderDetailsType').textContent = (order.order_type || 'dine_in').charAt(0).toUpperCase() + (order.order_type || 'dine_in').slice(1).replace('_', ' ');
+        document.getElementById('orderDetailsPayment').textContent = (order.payment_method || 'cash').replace('_', ' ');
+        document.getElementById('orderDetailsCustomer').textContent = order.customer_name || '—';
+        document.getElementById('orderDetailsDate').textContent = new Date(order.printed_at).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        // Render items
+        const itemsContainer = document.getElementById('orderDetailsItems');
+        itemsContainer.innerHTML = (order.items || []).map(item => {
+            return '<div style="padding:8px 0; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:start;">'
+                + '<div style="flex:1;">'
+                + '<p style="font-size:12px; font-weight:700; color:#0f172a; margin:0;">' + escapeHtml(item.product_name) + '</p>'
+                + '<p style="font-size:10px; color:#94a3b8; margin:2px 0 0;">' + item.quantity + ' × Rs. ' + item.unit_price.toFixed(2) + '</p>'
+                + (item.kitchen_notes ? '<p style="font-size:10px; color:#f59e0b; margin:2px 0 0;"><i class="fas fa-note-sticky" style="margin-right:3px;"></i>' + escapeHtml(item.kitchen_notes) + '</p>' : '')
+                + '</div>'
+                + '<span style="font-size:12px; font-weight:700; color:#0f172a; min-width:70px; text-align:right;">Rs. ' + item.subtotal.toFixed(2) + '</span>'
+                + '</div>';
+        }).join('');
+
+        // Render totals
+        document.getElementById('orderDetailsSubtotal').textContent = 'Rs. ' + order.subtotal.toFixed(2);
+        document.getElementById('orderDetailsDiscount').textContent = 'Rs. ' + order.discount_amount.toFixed(2);
+        document.getElementById('orderDetailsTotal').textContent = 'Rs. ' + order.total.toFixed(2);
+    }
+
+    async function reprintOrderBill() {
+        if (!currentOrderForDetails) {
+            toast('No order selected', 'error');
+            return;
+        }
+
+        try {
+            showLoading();
+            const res = await fetch('{{ route("pos.order.bill.reprint", ":id") }}'.replace(':id', currentOrderForDetails.id));
+            if (!res.ok) {
+                toast('Failed to load bill for reprint', 'error');
+                hideLoading();
+                return;
+            }
+            const billData = await res.json();
+            if (!billData.success) {
+                toast(billData.message || 'Failed to reprint bill', 'error');
+                hideLoading();
+                return;
+            }
+
+            // Generate bill content
+            generateAndPrintBill(billData);
+            hideLoading();
+        } catch (e) {
+            console.error('Reprint bill error:', e);
+            hideLoading();
+            toast('Error reprinting bill', 'error');
+        }
+    }
+
+    function generateAndPrintBill(billData) {
+        const header = rcptHeader('RECEIPT');
+        const meta = rcptMeta([
+            ['Order #', escapeHtml(billData.order_number)],
+            ['Token #', escapeHtml(billData.token_number)],
+            ['Date', billData.printed_at ? new Date(billData.printed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'],
+            ['Type', billData.order_type.charAt(0).toUpperCase() + billData.order_type.slice(1).replace('_', ' ')],
+        ]);
+
+        const customerLine = billData.customer_name ? '<div class="row sm"><span class="label">Customer</span><span class="value">' + escapeHtml(billData.customer_name) + '</span></div>' : '';
+
+        const itemHeader = rcptItemHeader();
+        const itemRows = rcptItemRows(billData.items);
+        const totals = rcptTotals(billData.subtotal, billData.discount_amount, billData.total);
+
+        const footer = '<div class="center sm mt8">'
+            + '<p style="margin:0;">Thank you for your order!</p>'
+            + '<p style="margin:4px 0 0;">Contact: +94 702 398 400</p>'
+            + '<p style="margin:4px 0 0;">www.jblfoodcorner.com</p>'
+            + '</div>';
+
+        currentBillContent = header + meta + customerLine + itemHeader + itemRows + totals + footer;
+
+        // Show in modal
+        document.getElementById('billContent').innerHTML = currentBillContent;
+        openModal('finalBillModal');
+    }
+
 </script>
 
 <script>
