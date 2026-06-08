@@ -402,6 +402,22 @@
                                style="width:50px; font-size:10px; border:1px solid #e2e8f0; border-radius:5px; padding:3px 6px; outline:none; background:#f8fafc;">
                     </div>
                 </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-top:8px;">
+                    <span style="color:#64748b;">Service Charge</span>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <label style="font-size:10px; color:#334155; display:flex; align-items:center; gap:4px;">
+                            <input type="checkbox" id="serviceChargeEnabled" checked onchange="onServiceChargeInputChange()" style="width:14px; height:14px;">
+                            <span>Enable</span>
+                        </label>
+                           <input type="number" id="serviceChargeRate" value="8" min="0" max="100" step="0.1" oninput="recalcTotal()" onchange="onServiceChargeInputChange()"
+                               style="width:50px; font-size:10px; border:1px solid #e2e8f0; border-radius:5px; padding:3px 6px; outline:none; background:#f8fafc;">
+                        <span style="font-size:10px; color:#64748b;">%</span>
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; color:#64748b; font-size:11px; padding-top:4px;">
+                    <span>Service Charge Amount</span>
+                    <span id="serviceChargeDisplay" style="font-weight:600; color:#374151;">Rs. 0.00</span>
+                </div>
                 <div style="display:flex; justify-content:space-between; padding-top:4px; border-top:2px solid #f1f5f9; font-weight:700; font-size:14px; color:#dc2626;">
                     <span>Total</span>
                     <span id="totalDisplay">Rs. 0.00</span>
@@ -948,6 +964,9 @@
             items: [], 
             subtotal: 0, 
             total: 0,
+            service_charge_enabled: true,
+            service_charge_rate: 8,
+            service_charge_amount: 0,
             discount_amount: 0, 
             live_bill_enabled: false,
             customer_name: null, 
@@ -1046,6 +1065,8 @@
 
             document.getElementById('discountType').value = '';
             document.getElementById('discountValue').value = '';
+            document.getElementById('serviceChargeEnabled').checked = currentOrder.service_charge_enabled !== false;
+            document.getElementById('serviceChargeRate').value = currentOrder.service_charge_rate ?? 8;
             const discountBadge = document.getElementById('tierDiscountBadge');
             if (discountBadge) discountBadge.style.display = 'none';
 
@@ -1098,6 +1119,9 @@
             items: [],
             subtotal: 0,
             total: 0,
+            service_charge_enabled: true,
+            service_charge_rate: 8,
+            service_charge_amount: 0,
             discount_amount: 0,
             live_bill_enabled: false,
             customer_name: null,
@@ -1107,6 +1131,8 @@
 
         document.getElementById('discountType').value = '';
         document.getElementById('discountValue').value = '';
+        document.getElementById('serviceChargeEnabled').checked = true;
+        document.getElementById('serviceChargeRate').value = 8;
         const discountBadge = document.getElementById('tierDiscountBadge');
         if (discountBadge) discountBadge.style.display = 'none';
 
@@ -1154,6 +1180,9 @@
             items: [],
             subtotal: 0,
             total: 0,
+            service_charge_enabled: true,
+            service_charge_rate: 8,
+            service_charge_amount: 0,
             discount_amount: 0,
             live_bill_enabled: false,
             customer_name: null,
@@ -1163,6 +1192,8 @@
 
         document.getElementById('discountType').value = '';
         document.getElementById('discountValue').value = '';
+        document.getElementById('serviceChargeEnabled').checked = true;
+        document.getElementById('serviceChargeRate').value = 8;
         const discountBadge = document.getElementById('tierDiscountBadge');
         if (discountBadge) discountBadge.style.display = 'none';
 
@@ -1255,6 +1286,9 @@
                 items: [],
                 subtotal: 0,
                 total: 0,
+                service_charge_enabled: true,
+                service_charge_rate: 8,
+                service_charge_amount: 0,
                 discount_amount: 0,
                 live_bill_enabled: false,
                 customer_name: null,
@@ -1265,6 +1299,8 @@
                 table_name: null
             };
 
+            document.getElementById('serviceChargeEnabled').checked = true;
+            document.getElementById('serviceChargeRate').value = 8;
             renderTableView();
             renderBill();
             hideLoading();
@@ -1797,9 +1833,11 @@
         // Totals
         const subtotal = currentOrder.subtotal || 0;
         const discount = calcDiscount(subtotal);
-        const total    = Math.max(0, subtotal - discount);
+        const serviceCharge = calcServiceCharge(subtotal);
+        const total    = Math.max(0, subtotal - discount + serviceCharge);
 
         document.getElementById('subtotalDisplay').textContent = 'Rs. ' + subtotal.toFixed(2);
+        document.getElementById('serviceChargeDisplay').textContent = 'Rs. ' + serviceCharge.toFixed(2);
         document.getElementById('totalDisplay').textContent    = 'Rs. ' + total.toFixed(2);
 
         setBottomControls(hasItems);
@@ -1890,7 +1928,6 @@
                              background:${tc.bg}; color:${tc.color}; border:1px solid ${tc.border};">${tier}</span>
             </div>`;
         }).join('');
-
         dd.style.display = 'block';
     }
 
@@ -2077,14 +2114,63 @@
         return 0;
     }
 
+    function calcServiceCharge(subtotal) {
+        const enabled = document.getElementById('serviceChargeEnabled')?.checked;
+        const rate = parseFloat(document.getElementById('serviceChargeRate')?.value) || 0;
+        if (!enabled || rate <= 0) return 0;
+        return (subtotal * rate) / 100;
+    }
+
+    async function onServiceChargeInputChange() {
+        if (!currentOrder || !currentOrder.id) {
+            recalcTotal();
+            return;
+        }
+
+        const enabled = document.getElementById('serviceChargeEnabled')?.checked ?? true;
+        const rate = parseFloat(document.getElementById('serviceChargeRate')?.value) || 0;
+        currentOrder.service_charge_enabled = enabled;
+        currentOrder.service_charge_rate = rate;
+        currentOrder.service_charge_amount = calcServiceCharge(currentOrder.subtotal || 0);
+        recalcTotal();
+
+        try {
+            const res = await fetch('{{ route("pos.order.service_charge", ":id") }}'.replace(':id', currentOrder.id), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    service_charge_enabled: enabled,
+                    service_charge_rate: rate,
+                }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                currentOrder.service_charge_amount = data.service_charge_amount;
+                currentOrder.total = data.total;
+                // Keep the token list total in sync with the current order state
+                const tokenIndex = allTables.findIndex(t => t.order_id === currentOrder.id);
+                if (tokenIndex !== -1) {
+                    allTables[tokenIndex].total = currentOrder.total;
+                }
+                renderTables();
+            } else {
+                console.error('Unable to save service charge settings', res.status);
+            }
+        } catch (e) {
+            console.error('Service charge save error:', e);
+        }
+    }
+
     function recalcTotal() {
         if (!currentOrder) return;
 
         const subtotal = currentOrder.subtotal || 0;
         const discount = calcDiscount(subtotal);
-        const total    = Math.max(0, subtotal - discount);
+        const serviceCharge = calcServiceCharge(subtotal);
+        const total    = Math.max(0, subtotal - discount + serviceCharge);
 
         document.getElementById('subtotalDisplay').textContent = 'Rs. ' + subtotal.toFixed(2);
+        document.getElementById('serviceChargeDisplay').textContent = 'Rs. ' + serviceCharge.toFixed(2);
         document.getElementById('totalDisplay').textContent    = 'Rs. ' + total.toFixed(2);
 
         updateChange();
@@ -2095,7 +2181,8 @@
         if (!currentOrder) return 0;
         const subtotal = currentOrder.subtotal || 0;
         const discount = calcDiscount(subtotal);
-        return Math.max(0, subtotal - discount);
+        const serviceCharge = calcServiceCharge(subtotal);
+        return Math.max(0, subtotal - discount + serviceCharge);
     }
 
     function updateCardPaidDisplay() {
@@ -2226,6 +2313,8 @@
                 amount_paid:    amountPaid,
                 discount_type:  document.getElementById('discountType').value || null,
                 discount_value: parseFloat(document.getElementById('discountValue').value) || 0,
+                    service_charge_enabled: document.getElementById('serviceChargeEnabled')?.checked || false,
+                    service_charge_rate: parseFloat(document.getElementById('serviceChargeRate').value) || 0,
             })
         });
         if (!res.ok) {
@@ -2268,7 +2357,7 @@
             + (d.customer_phone ? '<div class="row sm"><span class="label">Phone</span><span class="value">' + escapeHtml(d.customer_phone) + '</span></div>' : '')
             + rcptItemHeader()
             + rcptItemRows(d.items)
-            + rcptTotalsWithLabel(d.subtotal, d.discount_amount || 0, discountLabel, d.total)
+            + rcptTotalsWithLabel(d.subtotal, d.discount_amount || 0, discountLabel, d.service_charge_amount || 0, d.total)
             + '<div class="row mt4"><span class="label">Paid (' + (methodLabel[d.payment_method] || d.payment_method) + ')</span><span class="value bold">Rs.' + d.amount_paid.toFixed(2) + '</span></div>'
             + (d.change_amount > 0 ? '<div class="row"><span class="label">Change</span><span class="value">Rs.' + d.change_amount.toFixed(2) + '</span></div>' : '')
             + '<div class="divider-dashed mt8"></div>'
@@ -2295,7 +2384,12 @@
         const res  = await fetch('{{ route("pos.order.waiter_bill", ":id") }}'.replace(':id', currentOrder.id), {
             method:  'POST',
             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ discount_type: discountType, discount_value: discountValue }),
+            body:    JSON.stringify({
+                discount_type: discountType,
+                discount_value: discountValue,
+                service_charge_enabled: document.getElementById('serviceChargeEnabled')?.checked || false,
+                service_charge_rate: parseFloat(document.getElementById('serviceChargeRate').value) || 0,
+            }),
         });
         const data = await res.json();
         if (!data.success) { toast('Could not generate bill', 'error'); return; }
@@ -2325,7 +2419,7 @@
             + (data.customer_phone ? '<div class="row sm"><span class="label">Phone</span><span class="value">' + escapeHtml(data.customer_phone) + '</span></div>' : '')
             + rcptItemHeader()
             + rcptItemRows(data.items)
-            + rcptTotalsWithLabel(data.subtotal, data.discount_amount || 0, discountLabel, data.total)
+            + rcptTotalsWithLabel(data.subtotal, data.discount_amount || 0, discountLabel, data.service_charge_amount || 0, data.total)
             + '<div class="divider-dashed mt8"></div>'
             + '<div class="center sm bold">** NOT A PAYMENT RECEIPT **</div>'
             + '<div class="center sm">Please pay at the counter</div>';
@@ -2694,17 +2788,21 @@
     }
 
     function rcptTotals(subtotal, discountAmt, total) {
-        return rcptTotalsWithLabel(subtotal, discountAmt, null, total);
+        return rcptTotalsWithLabel(subtotal, discountAmt, null, 0, total);
     }
 
     // discountLabel: optional string shown next to "Discount", e.g. "Discount (10%)" or "Discount (Fixed)"
-    function rcptTotalsWithLabel(subtotal, discountAmt, discountLabel, total) {
+    function rcptTotalsWithLabel(subtotal, discountAmt, discountLabel, serviceChargeAmt, total) {
         const discRow = discountAmt > 0
             ? '<div class="row"><span class="label">' + (discountLabel || 'Discount') + '</span><span class="value">-Rs.' + discountAmt.toFixed(2) + '</span></div>'
+            : '';
+        const serviceRow = serviceChargeAmt > 0
+            ? '<div class="row"><span class="label">Service Charge</span><span class="value">Rs.' + serviceChargeAmt.toFixed(2) + '</span></div>'
             : '';
         return '<div class="divider-solid"></div>'
             + '<div class="row mt4"><span class="label">Subtotal</span><span class="value">Rs.' + subtotal.toFixed(2) + '</span></div>'
             + discRow
+            + serviceRow
             + '<div class="divider-double"></div>'
             + '<div class="row bold lg"><span class="label">TOTAL</span><span class="value">Rs.' + total.toFixed(2) + '</span></div>'
             + '<div class="divider-double"></div>';

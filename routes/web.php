@@ -41,7 +41,8 @@ Route::middleware('auth')->group(function () {
 
     // QR Menu Management (Admin)
     Route::get('/qr-menu/admin', function () {
-        $modules = auth()->user()->role->modules()->get();
+        $user = Auth::user();
+        $modules = $user ? $user->role->modules()->get() : collect();
         return view('qr-menu.qr-admin', compact('modules'));
     })->name('qr.admin');
 
@@ -85,6 +86,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/pos/order/{order}/item/{item}', [PosController::class, 'updateItem'])->name('pos.item.update');
     Route::post('/pos/order/{order}/hold', [PosController::class, 'holdOrder'])->name('pos.order.hold');
     Route::post('/pos/order/{order}/complete', [PosController::class, 'completeOrder'])->name('pos.order.complete');
+    Route::post('/pos/order/{order}/service-charge', [PosController::class, 'updateServiceCharge'])->name('pos.order.service_charge');
     Route::post('/pos/order/{order}/kot', [PosController::class, 'printKot'])->name('pos.order.kot');
     Route::post('/pos/order/{order}/bot', [PosController::class, 'printBot'])->name('pos.order.bot');
     Route::post('/pos/order/{order}/customer', [PosController::class, 'updateCustomer'])->name('pos.order.customer');
@@ -113,7 +115,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports/export/combined-pdf', [ReportsController::class, 'exportCombinedPdf'])->name('reports.export.combined');
 
     Route::get('/settings', function () {
-        $modules = auth()->user()->role->modules()->get();
+        $user = Auth::user();
+        $modules = $user ? $user->role->modules()->get() : collect();
         return view('modules.settings', ['modules' => $modules]);
     })->name('settings.index');
 

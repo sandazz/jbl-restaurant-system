@@ -145,6 +145,9 @@ class PosController extends Controller
             'customer_name' => $validated['customer_name'] ?? null,
             'customer_phone' => $validated['customer_phone'] ?? null,
             'user_id' => Auth::id(),
+               'service_charge_enabled' => true,
+               'service_charge_rate' => 8.00,
+               'service_charge_amount' => 0,
             'order_type' => $validated['order_type'],
             'waiter_name' => $validated['waiter_name'] ?? ($user?->name ?? 'Unknown'),
         ]);
@@ -178,6 +181,9 @@ class PosController extends Controller
             'discount_amount' => (float) $order->discount_amount,
             'tax_amount' => (float) $order->tax_amount,
             'total' => (float) $order->total,
+               'service_charge_enabled' => (bool) $order->service_charge_enabled,
+               'service_charge_rate' => (float) $order->service_charge_rate,
+               'service_charge_amount' => (float) $order->service_charge_amount,
             'items' => $order->items->map(function ($item) {
                 return [
                     'id' => $item->id,
@@ -341,6 +347,8 @@ class PosController extends Controller
         $validated = $request->validate([
             'discount_type' => 'nullable|in:percentage,fixed',
             'discount_value' => 'nullable|numeric|min:0',
+            'service_charge_enabled' => 'nullable|boolean',
+            'service_charge_rate' => 'nullable|numeric|min:0|max:100',
         ]);
 
         $subtotal = $order->items->sum('subtotal');
@@ -354,9 +362,17 @@ class PosController extends Controller
 
         $total = $subtotal - $discount;
 
+        $serviceChargeEnabled = $validated['service_charge_enabled'] ?? $order->service_charge_enabled;
+        $serviceChargeRate = $validated['service_charge_rate'] ?? $order->service_charge_rate;
+        $serviceChargeAmount = $serviceChargeEnabled ? round(($subtotal * $serviceChargeRate) / 100, 2) : 0;
+        $total += $serviceChargeAmount;
+
         $order->update([
             'status' => 'completed',
             'subtotal' => $subtotal,
+            'service_charge_enabled' => $serviceChargeEnabled,
+            'service_charge_rate' => $serviceChargeRate,
+            'service_charge_amount' => $serviceChargeAmount,
             'discount_amount' => $discount,
             'tax_amount' => 0,
             'total' => $total,
@@ -395,6 +411,8 @@ class PosController extends Controller
 
         if ($pendingItems->isEmpty()) {
             return response()->json([
+                       'service_charge_enabled' => 'nullable|boolean',
+                       'service_charge_rate' => 'nullable|numeric|min:0|max:100',
                 'success' => false,
                 'message' => 'No new kitchen items to print.',
                 'order_number' => $order->order_number,
@@ -471,10 +489,15 @@ class PosController extends Controller
     private function updateOrderTotals(Order $order)
     {
         $subtotal = $order->items->sum('subtotal');
+        $serviceChargeAmount = 0;
+        if ($order->service_charge_enabled) {
+            $serviceChargeAmount = round(($subtotal * ($order->service_charge_rate ?? 0)) / 100, 2);
+        }
         $order->update([
             'subtotal' => $subtotal,
+            'service_charge_amount' => $serviceChargeAmount,
             'tax_amount' => 0,
-            'total' => $subtotal,
+            'total' => $subtotal + $serviceChargeAmount,
         ]);
     }
 
@@ -498,6 +521,35 @@ class PosController extends Controller
         ]);
     }
 
+    public function updateServiceCharge(Request $request, Order $order)
+    {
+        $validated = $request->validate([
+            'service_charge_enabled' => 'required|boolean',
+            'service_charge_rate' => 'required|numeric|min:0|max:100',
+        ]);
+
+        $subtotal = $order->items->sum('subtotal');
+        $discount = $order->discount_amount ?? 0;
+        $serviceChargeAmount = $validated['service_charge_enabled']
+            ? round(($subtotal * $validated['service_charge_rate']) / 100, 2)
+            : 0;
+
+        $order->update([
+            'service_charge_enabled' => $validated['service_charge_enabled'],
+            'service_charge_rate' => $validated['service_charge_rate'],
+            'service_charge_amount' => $serviceChargeAmount,
+            'total' => max(0, $subtotal - $discount + $serviceChargeAmount),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'service_charge_enabled' => $order->service_charge_enabled,
+            'service_charge_rate' => (float) $order->service_charge_rate,
+            'service_charge_amount' => (float) $order->service_charge_amount,
+            'total' => (float) $order->total,
+        ]);
+    }
+
     public function printWaiterBill(Request $request, Order $order)
     {
         $order->load('items', 'table');
@@ -506,6 +558,12 @@ class PosController extends Controller
         $subtotal      = $order->items->sum('subtotal');
         $discountType  = $request->input('discount_type');
         $discountValue = (float) $request->input('discount_value', 0);
+        $serviceChargeEnabled = $request->has('service_charge_enabled')
+            ? (bool) $request->input('service_charge_enabled')
+            : $order->service_charge_enabled;
+        $serviceChargeRate = $request->has('service_charge_rate')
+            ? (float) $request->input('service_charge_rate')
+            : $order->service_charge_rate;
 
         $discountAmount = 0;
         if ($discountType === 'percentage') {
@@ -514,7 +572,12 @@ class PosController extends Controller
             $discountAmount = min($discountValue, $subtotal);
         }
 
-        $total = max(0, $subtotal - $discountAmount);
+        $serviceChargeAmount = 0;
+        if ($serviceChargeEnabled) {
+            $serviceChargeAmount = round(($subtotal * ($serviceChargeRate ?? 0)) / 100, 2);
+        }
+
+        $total = max(0, $subtotal - $discountAmount + $serviceChargeAmount);
 
         return response()->json([
             'success'         => true,
@@ -529,6 +592,9 @@ class PosController extends Controller
             'discount_type'   => $discountType,
             'discount_value'  => $discountValue,
             'discount_amount' => (float) $discountAmount,
+            'service_charge_enabled' => $serviceChargeEnabled,
+            'service_charge_rate' => (float) $serviceChargeRate,
+            'service_charge_amount' => (float) $serviceChargeAmount,
             'total'           => (float) $total,
             'items'           => $order->items->map(fn($item) => [
                 'product_name'  => $item->product_name,
@@ -578,6 +644,8 @@ class PosController extends Controller
             'amount_paid'    => 'required|numeric|min:0',
             'discount_type'  => 'nullable|in:percentage,fixed',
             'discount_value' => 'nullable|numeric|min:0',
+            'service_charge_enabled' => 'nullable|boolean',
+            'service_charge_rate' => 'nullable|numeric|min:0|max:100',
         ]);
 
         $order->load('items', 'table');
@@ -590,13 +658,21 @@ class PosController extends Controller
             $discount = $validated['discount_value'];
         }
 
+        $serviceChargeEnabled = $validated['service_charge_enabled'] ?? $order->service_charge_enabled;
+        $serviceChargeRate = $validated['service_charge_rate'] ?? $order->service_charge_rate;
+        $serviceChargeAmount = $serviceChargeEnabled ? round(($subtotal * $serviceChargeRate) / 100, 2) : 0;
+
         $total      = $subtotal - $discount;
+        $total += $serviceChargeAmount;
         $amountPaid = $validated['amount_paid'];
         $change     = max(0, $amountPaid - $total);
 
         $order->update([
             'status'          => 'completed',
             'subtotal'        => $subtotal,
+            'service_charge_enabled' => $serviceChargeEnabled,
+            'service_charge_rate' => $serviceChargeRate,
+            'service_charge_amount' => $serviceChargeAmount,
             'discount_amount' => $discount,
             'tax_amount'      => 0,
             'total'           => $total,
@@ -633,6 +709,9 @@ class PosController extends Controller
             'discount_type'   => $validated['discount_type'] ?? null,
             'discount_value'  => (float) ($validated['discount_value'] ?? 0),
             'discount_amount' => (float) $discount,
+            'service_charge_enabled' => $serviceChargeEnabled,
+            'service_charge_rate' => (float) $serviceChargeRate,
+            'service_charge_amount' => (float) $serviceChargeAmount,
             'total'           => (float) $total,
             'payment_method'  => $validated['payment_method'],
             'amount_paid'     => (float) $amountPaid,
