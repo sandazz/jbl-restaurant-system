@@ -46,6 +46,9 @@
                     <a href="{{ route('dashboard') }}">
                         <i class="fas fa-gauge-high" style="width:16px;"></i> Dashboard
                     </a>
+                    <a href="{{ route('order-history.index') }}">
+                        <i class="fas fa-history" style="width:16px;"></i> Order History
+                    </a>
                     <a href="{{ route('settings.index') }}">
                         <i class="fas fa-gear" style="width:16px;"></i> Settings
                     </a>

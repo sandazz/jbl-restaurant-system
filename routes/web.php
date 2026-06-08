@@ -99,6 +99,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/pos/order/{order}/pay', [PosController::class, 'payOrder'])->name('pos.order.pay');
     Route::post('/pos/create-customer-quick', [PosController::class, 'createCustomerQuick'])->name('pos.create.customer.quick');
     Route::get('/pos/order-history', [PosController::class, 'orderHistory'])->name('pos.order.history');
+    Route::get('/order-history', [PosController::class, 'orderHistoryPage'])->name('order-history.index');
     Route::get('/pos/order/{order}/bill-reprint', [PosController::class, 'reprintBill'])->name('pos.order.bill.reprint');
 
     // Stock adjustments

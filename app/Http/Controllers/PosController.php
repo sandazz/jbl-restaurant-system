@@ -731,4 +731,20 @@ class PosController extends Controller
             ]),
         ]);
     }
+
+    public function orderHistoryPage()
+    {
+        $user = Auth::user();
+        $modules = $user ? $user->role->modules()->get() : collect();
+
+        $orders = Order::where('status', 'completed')
+            ->with('items.product', 'table', 'customer')
+            ->latest('printed_at')
+            ->paginate(15);
+
+        return view('order-history.index', [
+            'orders'  => $orders,
+            'modules' => $modules,
+        ]);
+    }
 }
