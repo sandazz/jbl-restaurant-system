@@ -28,8 +28,8 @@
         </div>
     </div>
 
-    <!-- ── SUMMARY CARDS (6 cards) ── -->
-    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+    <!-- ── SUMMARY CARDS (7 cards) ── -->
+    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-4">
 
         <!-- Total Revenue -->
         <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
@@ -51,6 +51,16 @@
             <p class="text-xl font-bold text-gray-900">LKR {{ number_format($monthRevenue, 2) }}</p>
             <div class="mt-2 w-8 h-1 rounded-full bg-teal-400"></div>
         </div>
+
+        <!-- Total Service Charges -->
+        <div class="bg-white rounded-2xl p-5 border border-amber-100 shadow-sm hover:shadow-md transition-shadow">
+            <p class="text-xs font-semibold text-amber-500 uppercase tracking-wide mb-1">Service Charges (Total)</p>
+            <p class="text-xl font-bold text-amber-700">LKR {{ number_format($totalServiceCharges, 2) }}</p>
+            <div class="mt-2 w-8 h-1 rounded-full bg-amber-400"></div>
+        </div>
+
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-4 mb-8">
 
         <!-- Total Orders -->
         <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
@@ -103,6 +113,8 @@
                             <th class="px-4 py-3 text-left">Order #</th>
                             <th class="px-4 py-3 text-left">Table</th>
                             <th class="px-4 py-3 text-left">Customer</th>
+                            <th class="px-4 py-3 text-right">Subtotal</th>
+                            <th class="px-4 py-3 text-right">Svc Chg</th>
                             <th class="px-4 py-3 text-right">Total</th>
                             <th class="px-4 py-3 text-center">Payment</th>
                             <th class="px-4 py-3 text-right">Date</th>
@@ -116,6 +128,19 @@
                                 {{ $sale->table?->name ?? ($sale->table?->table_number ? 'T'.$sale->table->table_number : '—') }}
                             </td>
                             <td class="px-4 py-3 text-gray-600">{{ $sale->customer_name ?? '—' }}</td>
+                            <td class="px-4 py-3 text-right text-gray-500">
+                                LKR {{ number_format($sale->subtotal, 2) }}
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                @if($sale->service_charge_amount > 0)
+                                    <span class="text-amber-600 font-medium text-xs">
+                                        +{{ number_format($sale->service_charge_amount, 2) }}
+                                        <span class="text-gray-400">({{ $sale->service_charge_rate }}%)</span>
+                                    </span>
+                                @else
+                                    <span class="text-gray-300">—</span>
+                                @endif
+                            </td>
                             <td class="px-4 py-3 text-right font-semibold text-gray-900">
                                 LKR {{ number_format($sale->total, 2) }}
                             </td>
@@ -138,7 +163,7 @@
                             </td>
                         </tr>
                         @empty
-                        <tr><td colspan="6" class="px-4 py-10 text-center text-gray-400">No completed orders yet.</td></tr>
+                        <tr><td colspan="8" class="px-4 py-10 text-center text-gray-400">No completed orders yet.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

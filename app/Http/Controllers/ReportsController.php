@@ -22,8 +22,9 @@ class ReportsController extends Controller
         $monthRevenue  = Order::where('status', 'completed')
                               ->whereYear('created_at',  Carbon::now()->year)
                               ->whereMonth('created_at', Carbon::now()->month)->sum('total');
-        $totalOrders   = Order::where('status', 'completed')->count();
-        $avgOrderValue = $totalOrders > 0 ? round($totalRevenue / $totalOrders, 2) : 0;
+        $totalOrders          = Order::where('status', 'completed')->count();
+        $avgOrderValue        = $totalOrders > 0 ? round($totalRevenue / $totalOrders, 2) : 0;
+        $totalServiceCharges  = Order::where('status', 'completed')->sum('service_charge_amount');
 
         // Top selling product (by quantity sold)
         $topProductRow = OrderItem::select('product_name', DB::raw('SUM(quantity) as total_qty'))
@@ -84,6 +85,7 @@ class ReportsController extends Controller
             'modules',
             'totalRevenue', 'todaySales', 'monthRevenue',
             'totalOrders', 'avgOrderValue', 'topProduct',
+            'totalServiceCharges',
             'chartLabels', 'chartData',
             'recentSales', 'topProducts', 'paymentBreakdown'
         ));
