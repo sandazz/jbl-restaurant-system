@@ -94,10 +94,11 @@
 <body>
 
 @include('layouts.navbar')
+@include('components.sidebar')
 
 <div id="printArea"></div>
 
-<div style="padding-top: 67px;">
+<div style="padding-top: 67px; margin-left: 16rem;">
     <div class="w-full px-6 py-8 max-w-screen-2xl mx-auto">
 
         <!-- Page Header -->
