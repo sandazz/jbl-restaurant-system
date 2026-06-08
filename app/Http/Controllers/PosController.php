@@ -40,6 +40,26 @@ class PosController extends Controller
         ]);
     }
 
+    public function getTokens()
+    {
+        $tokens = Order::where('status', '!=', 'completed')
+            ->latest('created_at')
+            ->get()
+            ->map(function ($order) {
+                return [
+                    'order_id' => $order->id,
+                    'token_number' => $order->token_number,
+                    'order_number' => $order->order_number,
+                    'items_count' => $order->items->count(),
+                    'customer_name' => $order->customer_name,
+                    'table_number' => $order->table?->table_number,
+                    'total' => (float) $order->total,
+                ];
+            });
+
+        return response()->json($tokens);
+    }
+
     public function getTables()
     {
         $tables = RestaurantTable::with('activeOrders.items')->get()->map(function ($table) {
@@ -128,17 +148,6 @@ class PosController extends Controller
             'order_type' => $validated['order_type'],
             'waiter_name' => $validated['waiter_name'] ?? ($user?->name ?? 'Unknown'),
         ]);
-
-        // Only mark table as occupied if it's not already
-        if (!empty($validated['table_id'])) {
-            $table = RestaurantTable::find($validated['table_id']);
-            if ($table && $table->status !== 'occupied') {
-                $table->update([
-                    'status' => 'occupied',
-                    'occupied_at' => now(),
-                ]);
-            }
-        }
 
         return response()->json([
             'success' => true,
@@ -458,7 +467,7 @@ class PosController extends Controller
     private function generateTokenNumber(): string
     {
         $count = Order::whereDate('created_at', today())->count() + 1;
-        return 'T-' . str_pad($count, 3, '0', STR_PAD_LEFT);
+        return str_pad($count, 4, '0', STR_PAD_LEFT);
     }
 
     private function updateOrderTotals(Order $order)
@@ -571,11 +580,18 @@ class PosController extends Controller
     public function payOrder(Request $request, Order $order)
     {
         $validated = $request->validate([
+<<<<<<< HEAD
             'payment_method'      => 'required|in:cash,card,bank_transfer,mixed',
             'amount_paid'         => 'required|numeric|min:0',
             'discount_type'       => 'nullable|in:percentage,fixed',
             'discount_value'      => 'nullable|numeric|min:0',
             'service_charge_rate' => 'nullable|numeric|min:0|max:100',
+=======
+            'payment_method' => 'required|in:cash,card,bank_transfer,mixed,split',
+            'amount_paid'    => 'required|numeric|min:0',
+            'discount_type'  => 'nullable|in:percentage,fixed',
+            'discount_value' => 'nullable|numeric|min:0',
+>>>>>>> main
         ]);
 
         $order->load('items', 'table');
@@ -688,6 +704,68 @@ class PosController extends Controller
             'phone_number' => $customer->phone_number,
             'tier' => $customer->tier,
             'title' => $customer->title,
+        ]);
+    }
+
+    public function orderHistory()
+    {
+        $orders = Order::where('status', 'completed')
+            ->with('items.product', 'table', 'customer')
+            ->latest('printed_at')
+            ->paginate(20);
+
+        return response()->json($orders);
+    }
+
+    public function reprintBill(Order $order)
+    {
+        if ($order->status !== 'completed') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only completed orders can be reprinted',
+            ], 422);
+        }
+
+        $order->load('items', 'table');
+
+        return response()->json([
+            'success'         => true,
+            'order_number'    => $order->order_number,
+            'token_number'    => $order->token_number,
+            'order_type'      => $order->order_type,
+            'table_number'    => $order->table?->table_number,
+            'table_name'      => $order->table?->name,
+            'customer_name'   => $order->customer_name,
+            'customer_phone'  => $order->customer_phone,
+            'subtotal'        => (float) $order->subtotal,
+            'discount_amount' => (float) $order->discount_amount,
+            'tax_amount'      => (float) $order->tax_amount,
+            'total'           => (float) $order->total,
+            'payment_method'  => $order->payment_method,
+            'printed_at'      => $order->printed_at,
+            'items'           => $order->items->map(fn($item) => [
+                'product_name'  => $item->product_name,
+                'quantity'      => $item->quantity,
+                'unit_price'    => (float) $item->unit_price,
+                'subtotal'      => (float) $item->subtotal,
+                'kitchen_notes' => $item->kitchen_notes,
+            ]),
+        ]);
+    }
+
+    public function orderHistoryPage()
+    {
+        $user = Auth::user();
+        $modules = $user ? $user->role->modules()->get() : collect();
+
+        $orders = Order::where('status', 'completed')
+            ->with('items.product', 'table', 'customer')
+            ->latest('printed_at')
+            ->paginate(15);
+
+        return view('order-history.index', [
+            'orders'  => $orders,
+            'modules' => $modules,
         ]);
     }
 }

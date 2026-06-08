@@ -9,8 +9,18 @@
         <!-- Right actions -->
         <div class="navbar-actions">
             <!-- Current page label -->
+            @php
+                $pageTitle = 'Dashboard';
+                if (request()->routeIs('dashboard')) {
+                    $pageTitle = 'Dashboard';
+                } elseif (request()->routeIs('settings.index')) {
+                    $pageTitle = 'Settings';
+                } elseif (request()->segment(1)) {
+                    $pageTitle = ucfirst(str_replace('-', ' ', request()->segment(1)));
+                }
+            @endphp
             <span class="hidden md:block" style="font-size:12px; color:#64748b; font-weight:500; margin-right:6px;">
-                {{ request()->routeIs('dashboard') ? 'Dashboard' : (request()->segment(1) ? ucfirst(str_replace('-', ' ', request()->segment(1))) : '') }}
+                {{ $pageTitle }}
             </span>
 
             <div class="nav-divider hidden sm:block"></div>
@@ -35,6 +45,9 @@
                     </div>
                     <a href="{{ route('dashboard') }}">
                         <i class="fas fa-gauge-high" style="width:16px;"></i> Dashboard
+                    </a>
+                    <a href="{{ route('order-history.index') }}">
+                        <i class="fas fa-history" style="width:16px;"></i> Order History
                     </a>
                     <a href="{{ route('settings.index') }}">
                         <i class="fas fa-gear" style="width:16px;"></i> Settings

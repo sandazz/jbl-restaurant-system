@@ -1,5 +1,9 @@
 *.log
 .DS_Store
+<<<<<<< HEAD
+=======
+.env
+>>>>>>> main
 .env.backup
 .phpactor.json
 .phpunit.result.cache

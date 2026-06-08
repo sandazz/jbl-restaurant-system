@@ -41,7 +41,8 @@ Route::middleware('auth')->group(function () {
 
     // QR Menu Management (Admin)
     Route::get('/qr-menu/admin', function () {
-        return view('qr-menu.qr-admin');
+        $modules = auth()->user()->role->modules()->get();
+        return view('qr-menu.qr-admin', compact('modules'));
     })->name('qr.admin');
 
     // Customer CRUD routes
@@ -91,11 +92,15 @@ Route::middleware('auth')->group(function () {
     Route::post('/pos/order/{order}/live-bill', [PosController::class, 'toggleLiveBill'])->name('pos.order.live_bill');
     Route::post('/pos/order/{order}/close-table', [PosController::class, 'closeTable'])->name('pos.order.close_table');
     Route::get('/pos/table/{table}/orders', [PosController::class, 'getTableOrders'])->name('pos.table.orders');
+    Route::get('/pos/tokens', [PosController::class, 'getTokens'])->name('pos.tokens');
     Route::get('/pos/tables', [PosController::class, 'getTables'])->name('pos.tables');
     Route::get('/pos/products', [PosController::class, 'getProducts'])->name('pos.products');
     Route::get('/pos/held-orders', [PosController::class, 'getHeldOrders'])->name('pos.held');
     Route::post('/pos/order/{order}/pay', [PosController::class, 'payOrder'])->name('pos.order.pay');
     Route::post('/pos/create-customer-quick', [PosController::class, 'createCustomerQuick'])->name('pos.create.customer.quick');
+    Route::get('/pos/order-history', [PosController::class, 'orderHistory'])->name('pos.order.history');
+    Route::get('/order-history', [PosController::class, 'orderHistoryPage'])->name('order-history.index');
+    Route::get('/pos/order/{order}/bill-reprint', [PosController::class, 'reprintBill'])->name('pos.order.bill.reprint');
 
     // Stock adjustments
     Route::get('/inventory/adjustments', [StockAdjustmentController::class, 'index'])->name('stock.adjustments.index');
