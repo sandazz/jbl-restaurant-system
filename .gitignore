@@ -2,7 +2,6 @@
 .DS_Store
 <<<<<<< HEAD
 =======
-.env
 >>>>>>> main
 .env.backup
 .phpactor.json
@@ -11,7 +10,6 @@
 /.idea
 /.nova
 /.phpunit.cache
-/.vscode
 /.zed
 /auth.json
 /node_modules
