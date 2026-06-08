@@ -102,6 +102,20 @@ class PosController extends Controller
         return response()->json($products);
     }
 
+    public function orderHistoryPage()
+    {
+        $orders = Order::with(['items', 'table'])
+            ->orderByDesc('created_at')
+            ->paginate(15);
+
+        return view('order-history.index', compact('orders'));
+    }
+
+    public function orderHistory()
+    {
+        return $this->orderHistoryPage();
+    }
+
     public function createOrder(Request $request)
     {
         $user = Auth::user();
