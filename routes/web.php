@@ -41,7 +41,8 @@ Route::middleware('auth')->group(function () {
 
     // QR Menu Management (Admin)
     Route::get('/qr-menu/admin', function () {
-        $modules = auth()->user()->role->modules()->get();
+        $user = Auth::user();
+        $modules = $user ? $user->role->modules()->get() : collect();
         return view('qr-menu.qr-admin', compact('modules'));
     })->name('qr.admin');
 
@@ -113,7 +114,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports/export/combined-pdf', [ReportsController::class, 'exportCombinedPdf'])->name('reports.export.combined');
 
     Route::get('/settings', function () {
-        $modules = auth()->user()->role->modules()->get();
+        $user = Auth::user();
+        $modules = $user ? $user->role->modules()->get() : collect();
         return view('modules.settings', ['modules' => $modules]);
     })->name('settings.index');
 
