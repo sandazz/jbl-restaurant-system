@@ -637,6 +637,28 @@ class PosController extends Controller
         return response()->json(['success' => true, 'message' => 'Table closed']);
     }
 
+    public function cancelOrder(Order $order)
+    {
+        if ($order->status === 'completed') {
+            return response()->json(['success' => false, 'message' => 'Completed orders cannot be cancelled'], 422);
+        }
+
+        if ($order->table_id) {
+            $table = RestaurantTable::find($order->table_id);
+            if ($table) {
+                $remainingOrders = $table->activeOrders()->where('id', '!=', $order->id)->count();
+                if ($remainingOrders === 0) {
+                    $table->update(['status' => 'available', 'occupied_at' => null]);
+                }
+            }
+        }
+
+        $order->items()->delete();
+        $order->delete();
+
+        return response()->json(['success' => true, 'message' => 'Token cancelled']);
+    }
+
     public function payOrder(Request $request, Order $order)
     {
         $validated = $request->validate([

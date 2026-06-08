@@ -306,8 +306,13 @@
                     <i class="fas fa-pause-circle" style="margin-right:2px;"></i>Held <span id="heldCount" style="background:#f59e0b;color:#fff;border-radius:8px;padding:0px 5px; font-size:9px;">0</span>
                 </button>
             </div>
-            <div id="selectedTableLabel" style="font-size:12px; font-weight:700; color:#64748b;">
-                <i class="fas fa-arrow-left" style="font-size:10px; margin-right:4px;"></i>Select a table to begin
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                <div id="selectedTableLabel" style="font-size:12px; font-weight:700; color:#64748b; flex:1;">
+                    <i class="fas fa-arrow-left" style="font-size:10px; margin-right:4px;"></i>Select a table to begin
+                </div>
+                <button id="cancelTokenBtn" onclick="cancelToken()" style="display:none; font-size:10px; font-weight:700; background:#fef2f2; color:#dc2626; border:1.5px solid #fecaca; border-radius:6px; padding:4px 8px; cursor:pointer; white-space:nowrap; transition:all 0.15s;" onmouseover="this.style.background='#dc2626'; this.style.color='#fff';" onmouseout="this.style.background='#fef2f2'; this.style.color='#dc2626';">
+                    <i class="fas fa-times-circle" style="margin-right:3px;"></i>Cancel Token
+                </button>
             </div>
         </div>
 
@@ -1851,6 +1856,10 @@
         if (closeBtn) {
             closeBtn.style.display = hasItems ? 'none' : 'flex';
         }
+        const cancelBtn = document.getElementById('cancelTokenBtn');
+        if (cancelBtn) {
+            cancelBtn.style.display = (currentOrder && currentOrder.id && !hasItems) ? 'inline-flex' : 'none';
+        }
     }
 
     function setBottomControls(hasItems) {
@@ -2642,6 +2651,35 @@
         toast('Table deselected', 'success');
     }
 
+    async function cancelToken() {
+        if (!currentOrder || !currentOrder.id) return;
+
+        const tokenLabel = currentOrder.token_number || currentOrder.order_number || 'this token';
+        if (!confirm('Cancel and permanently delete ' + tokenLabel + '? This cannot be undone.')) return;
+
+        showLoading();
+        try {
+            const res = await fetch('{{ route("pos.order.cancel", ":id") }}'.replace(':id', currentOrder.id), {
+                method: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                toast(err.message || 'Failed to cancel token', 'error');
+                hideLoading();
+                return;
+            }
+            resetOrder();
+            await loadTables();
+            hideLoading();
+            toast('Token cancelled and removed', 'success');
+        } catch (e) {
+            console.error('Cancel token error:', e);
+            hideLoading();
+            toast('Error cancelling token', 'error');
+        }
+    }
+
     // ═══════════════════════════════════════════
     // HELPERS
     // ═══════════════════════════════════════════
@@ -2684,6 +2722,8 @@
         document.getElementById('cardSection').style.display = 'none';
         document.querySelectorAll('.table-card.expanded').forEach(c => c.classList.remove('expanded'));
         document.querySelectorAll('.table-card.selected').forEach(c => c.classList.remove('selected'));
+        const cancelBtn = document.getElementById('cancelTokenBtn');
+        if (cancelBtn) cancelBtn.style.display = 'none';
     }
     // ─── shared print CSS injected into every receipt window ───────────────
     const RECEIPT_CSS = `

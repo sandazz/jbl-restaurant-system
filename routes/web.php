@@ -93,6 +93,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/pos/order/{order}/waiter-bill', [PosController::class, 'printWaiterBill'])->name('pos.order.waiter_bill');
     Route::post('/pos/order/{order}/live-bill', [PosController::class, 'toggleLiveBill'])->name('pos.order.live_bill');
     Route::post('/pos/order/{order}/close-table', [PosController::class, 'closeTable'])->name('pos.order.close_table');
+    Route::delete('/pos/order/{order}/cancel', [PosController::class, 'cancelOrder'])->name('pos.order.cancel');
     Route::get('/pos/table/{table}/orders', [PosController::class, 'getTableOrders'])->name('pos.table.orders');
     Route::get('/pos/tokens', [PosController::class, 'getTokens'])->name('pos.tokens');
     Route::get('/pos/tables', [PosController::class, 'getTables'])->name('pos.tables');
