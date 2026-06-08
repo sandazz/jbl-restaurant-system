@@ -399,25 +399,25 @@
             + '<div class="bold lg mt4">RECEIPT</div>'
             + '</div>';
 
-        const meta = '<div class="row sm mt4"><span class="label">Order #</span><span class="value">' + escapeHtml(billData.order_number) + '</span></div>'
-            + '<div class="row sm"><span class="label">Token #</span><span class="value">' + escapeHtml(billData.token_number) + '</span></div>'
-            + '<div class="row sm"><span class="label">Date</span><span class="value">' + (billData.printed_at ? new Date(billData.printed_at).toLocaleDateString() : '—') + '</span></div>';
+        const meta = '<div class="row sm mt8" style="margin-bottom: 8px;"><span class="label">Order #</span><span class="value">' + escapeHtml(billData.order_number) + '</span></div>'
+            + '<div class="row sm" style="margin-bottom: 8px;"><span class="label">Token #</span><span class="value">' + escapeHtml(billData.token_number) + '</span></div>'
+            + '<div class="row sm" style="margin-bottom: 8px;"><span class="label">Date</span><span class="value">' + (billData.printed_at ? new Date(billData.printed_at).toLocaleDateString() : '—') + '</span></div>';
 
-        const customerLine = billData.customer_name ? '<div class="row sm"><span class="label">Customer</span><span class="value">' + escapeHtml(billData.customer_name) + '</span></div>' : '';
+        const customerLine = billData.customer_name ? '<div class="row sm" style="margin-bottom: 8px;"><span class="label">Customer</span><span class="value">' + escapeHtml(billData.customer_name) + '</span></div>' : '';
 
         const items = (billData.items || []).map(item => {
-            return '<div style="margin: 3px 0;">'
-                + '<div style="display: flex;">'
+            return '<div style="margin: 8px 0;">'
+                + '<div style="display: flex; font-size: 9px;">'
                 + '<span style="flex: 1; font-weight: bold;">' + escapeHtml(item.product_name) + '</span>'
                 + '<span style="width: 30px; text-align: center;">' + item.quantity + '</span>'
                 + '<span style="width: 70px; text-align: right;">LKR' + item.subtotal.toFixed(2) + '</span>'
                 + '</div>'
-                + '<div class="sm">' + item.quantity + ' x LKR' + item.unit_price.toFixed(2) + '</div>'
+                + '<div class="sm" style="font-size: 8px; margin-top: 3px;">' + item.quantity + ' x LKR' + item.unit_price.toFixed(2) + '</div>'
                 + '</div>';
         }).join('');
 
         const itemHeader = '<div class="divider-solid"></div>'
-            + '<div style="display: flex; font-size: 9px; font-weight: bold; margin: 2px 0;">'
+            + '<div style="display: flex; font-size: 8px; font-weight: bold; margin: 8px 0;">'
             + '<span style="flex: 1;">ITEM</span>'
             + '<span style="width: 30px; text-align: center;">QTY</span>'
             + '<span style="width: 70px; text-align: right;">AMOUNT</span>'
@@ -425,13 +425,13 @@
             + '<div class="divider-dashed"></div>';
 
         const totals = '<div class="divider-solid"></div>'
-            + '<div class="row mt4"><span class="label">Subtotal</span><span class="value">LKR' + billData.subtotal.toFixed(2) + '</span></div>'
-            + (billData.discount_amount > 0 ? '<div class="row"><span class="label">Discount</span><span class="value">-LKR' + billData.discount_amount.toFixed(2) + '</span></div>' : '')
+            + '<div class="row mt8" style="margin-bottom: 8px; font-size: 9px;"><span class="label">Subtotal</span><span class="value">LKR' + billData.subtotal.toFixed(2) + '</span></div>'
+            + (billData.discount_amount > 0 ? '<div class="row" style="margin-bottom: 8px; font-size: 9px;"><span class="label">Discount</span><span class="value">-LKR' + billData.discount_amount.toFixed(2) + '</span></div>' : '')
             + '<div class="divider-double"></div>'
-            + '<div class="row bold lg"><span class="label">TOTAL</span><span class="value">LKR' + billData.total.toFixed(2) + '</span></div>'
+            + '<div class="row bold lg" style="margin: 8px 0; font-size: 10px;"><span class="label">TOTAL</span><span class="value">LKR' + billData.total.toFixed(2) + '</span></div>'
             + '<div class="divider-double"></div>'
-            + '<div class="center sm mt8"><p style="margin: 0;">Thank you for your order!</p>'
-            + '<p style="margin: 4px 0 0;">Contact: +94 702 398 400</p></div>';
+            + '<div class="center sm mt8"><p style="margin: 0; font-size: 8px;">Thank you for your order!</p>'
+            + '<p style="margin: 6px 0 0; font-size: 8px;">Contact: +94 702 398 400</p></div>';
 
         document.getElementById('billContent').innerHTML = header + meta + customerLine + itemHeader + items + totals;
     }
