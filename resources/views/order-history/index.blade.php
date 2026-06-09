@@ -66,29 +66,34 @@
         .btn-blue:hover    { background: #1d4ed8; }
 
         @media print {
+            @page { margin: 2mm 4mm; size: 80mm auto; }
+            html, body { margin: 0 !important; padding: 0 !important; height: auto !important; min-height: unset !important; }
             body > * { display: none !important; }
             #printArea { display: block !important; }
         }
-        #printArea { display: none; }
+        #printArea { display: none; font-weight: bold; }
 
-        #billContent { font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #000; }
-        #billContent .center  { text-align: center; }
-        #billContent .right   { text-align: right; }
-        #billContent .bold    { font-weight: bold; }
-        #billContent .lg      { font-size: 14px; }
-        #billContent .xl      { font-size: 17px; }
-        #billContent .sm      { font-size: 10px; }
-        #billContent .mt2     { margin-top: 2px; }
-        #billContent .mt4     { margin-top: 5px; }
-        #billContent .mt8     { margin-top: 10px; }
-        #billContent .mb4     { margin-bottom: 5px; }
-        #billContent .mb8     { margin-bottom: 10px; }
-        #billContent .divider-solid  { border-top: 1px solid #000; margin: 6px 0; }
-        #billContent .divider-dashed { border-top: 1px dashed #888; margin: 5px 0; }
-        #billContent .divider-double { border-top: 3px double #000; margin: 6px 0; }
-        #billContent .row            { display: flex; justify-content: space-between; align-items: flex-start; margin: 2px 0; }
-        #billContent .row .label     { flex: 1; }
-        #billContent .row .value     { white-space: nowrap; padding-left: 8px; }
+        #billContent, #printArea { font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #000; font-weight: bold; }
+        #billContent .center,  #printArea .center  { text-align: center; }
+        #billContent .right,   #printArea .right   { text-align: right; }
+        #billContent .bold,    #printArea .bold    { font-weight: bold; }
+        #billContent .lg,      #printArea .lg      { font-size: 14px; }
+        #billContent .xl,      #printArea .xl      { font-size: 17px; }
+        #billContent .sm,      #printArea .sm      { font-size: 10px; }
+        #billContent .mt2,     #printArea .mt2     { margin-top: 2px; }
+        #billContent .mt4,     #printArea .mt4     { margin-top: 5px; }
+        #billContent .mt8,     #printArea .mt8     { margin-top: 10px; }
+        #billContent .mb4,     #printArea .mb4     { margin-bottom: 5px; }
+        #billContent .mb8,     #printArea .mb8     { margin-bottom: 10px; }
+        #billContent .divider-solid,  #printArea .divider-solid  { border-top: 1px solid #000; margin: 6px 0; }
+        #billContent .divider-dashed, #printArea .divider-dashed { border-top: 1px dashed #888; margin: 5px 0; }
+        #billContent .divider-double, #printArea .divider-double { border-top: 3px double #000; margin: 6px 0; }
+        #billContent .row,     #printArea .row     { display: flex; justify-content: space-between; align-items: flex-start; margin: 2px 0; }
+        #billContent .row .label, #printArea .row .label { flex: 1; }
+        #billContent .row .value, #printArea .row .value { white-space: nowrap; padding-left: 8px; }
+        @media print {
+            #printArea { max-width: 80mm; margin: 0; padding: 0; }
+        }
     </style>
 </head>
 <body>
@@ -135,13 +140,21 @@
 
         <!-- Orders List -->
         <div style="background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden;">
-            <div style="padding: 20px; border-bottom: 1px solid #e2e8f0;">
-                <h2 style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 0;">
-                    <i class="fas fa-receipt mr-2" style="color: #3b82f6;"></i>Orders
+            <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <h2 style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 0;" id="historyTitle">
+                    <i class="fas fa-receipt mr-2" style="color: #3b82f6;"></i>Bill History
                 </h2>
+                <div style="display: flex; gap: 8px;">
+                    <button id="tabBill" onclick="switchTab('bill')" style="padding: 7px 16px; border-radius: 8px; font-size: 12px; font-weight: 700; border: 2px solid #3b82f6; background: #3b82f6; color: #fff; cursor: pointer; transition: all 0.15s;">
+                        <i class="fas fa-receipt" style="margin-right: 5px;"></i>Bill History
+                    </button>
+                    <button id="tabKot" onclick="switchTab('kot')" style="padding: 7px 16px; border-radius: 8px; font-size: 12px; font-weight: 700; border: 2px solid #e2e8f0; background: #f8fafc; color: #64748b; cursor: pointer; transition: all 0.15s;">
+                        <i class="fas fa-fire" style="margin-right: 5px;"></i>KOT History
+                    </button>
+                </div>
             </div>
 
-            <div style="padding: 16px;">
+            <div id="billHistoryContent" style="padding: 16px;">
                 @if($orders->count() > 0)
                     <div style="display: flex; flex-direction: column; gap: 12px;">
                         @foreach($orders as $order)
@@ -186,11 +199,15 @@
                     </div>
                 @endif
             </div>
+
+            <div id="kotHistoryContent" style="display: none; padding: 16px;">
+                <div id="kotOrdersList" style="display: flex; flex-direction: column; gap: 12px;"></div>
+            </div>
         </div>
 
         <!-- Pagination -->
         @if($orders->hasPages())
-            <div style="margin-top: 20px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;">
+            <div id="billPagination" style="margin-top: 20px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;">
                 @if($orders->onFirstPage())
                     <button disabled style="padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0; background: #f1f5f9; color: #94a3b8; cursor: not-allowed;">
                         <i class="fas fa-chevron-left mr-1"></i>Previous
@@ -221,6 +238,53 @@
             </div>
         @endif
 
+    </div>
+</div>
+
+<!-- KOT Details Modal -->
+<div id="kotDetailsModal" class="modal-overlay">
+    <div class="modal-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="font-size: 18px; font-weight: 800; color: #0f172a; margin: 0;">
+                <i class="fas fa-fire mr-2" style="color: #ea580c;"></i>Kitchen Order Ticket
+            </h2>
+            <button onclick="closeModal('kotDetailsModal')" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #94a3b8; line-height: 1;">&times;</button>
+        </div>
+
+        <div style="background: #fff7ed; border-radius: 10px; padding: 12px; margin-bottom: 16px; border: 1px solid #fed7aa;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px;">
+                <div>
+                    <p style="color: #92400e; margin: 0 0 3px; font-weight: 600;">Order #</p>
+                    <p id="kotModalOrderNum" style="color: #0f172a; margin: 0; font-weight: 700;">—</p>
+                </div>
+                <div>
+                    <p style="color: #92400e; margin: 0 0 3px; font-weight: 600;">Location</p>
+                    <p id="kotModalLocation" style="color: #0f172a; margin: 0; font-weight: 700;">—</p>
+                </div>
+                <div>
+                    <p style="color: #92400e; margin: 0 0 3px; font-weight: 600;">Token</p>
+                    <p id="kotModalToken" style="color: #0f172a; margin: 0; font-weight: 700;">—</p>
+                </div>
+                <div>
+                    <p style="color: #92400e; margin: 0 0 3px; font-weight: 600;">KOT Printed</p>
+                    <p id="kotModalDate" style="color: #0f172a; margin: 0; font-weight: 700;">—</p>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+            <h3 style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 0 0 10px; letter-spacing: 0.05em;">Items</h3>
+            <div id="kotModalItems" style="background: #fff; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 12px;"></div>
+        </div>
+
+        <div id="kotModalTotalItems" style="background: #fff7ed; border-radius: 8px; padding: 8px 12px; margin-bottom: 16px; text-align: center; font-weight: 700; color: #92400e; font-size: 13px;"></div>
+
+        <div style="display: flex; gap: 10px;">
+            <button onclick="closeModal('kotDetailsModal')" class="btn-secondary" style="flex: 1;">Close</button>
+            <button onclick="reprintFromKotModal()" style="flex: 1; background: #ea580c; color: #fff; border: none; border-radius: 10px; padding: 10px 16px; font-weight: 700; cursor: pointer; font-size: 13px; transition: background 0.15s;" onmouseover="this.style.background='#c2410c'" onmouseout="this.style.background='#ea580c'">
+                <i class="fas fa-print mr-1"></i>Reprint KOT
+            </button>
+        </div>
     </div>
 </div>
 
@@ -437,7 +501,11 @@
     }
 
     function printBillContent() {
+        const html = document.getElementById('billContent').innerHTML;
+        const printArea = document.getElementById('printArea');
+        printArea.innerHTML = html;
         window.print();
+        printArea.innerHTML = '';
     }
 
     function openModal(id) {
@@ -454,6 +522,203 @@
             if (e.target === overlay) closeModal(overlay.id);
         });
     });
+
+    // ── KOT History ──────────────────────────────────────────────────────────
+
+    let _kotHistoryLoaded = false;
+    let currentKotOrder = null;
+
+    function switchTab(tab) {
+        const tabBill  = document.getElementById('tabBill');
+        const tabKot   = document.getElementById('tabKot');
+        const billContent  = document.getElementById('billHistoryContent');
+        const kotContent   = document.getElementById('kotHistoryContent');
+        const billPagination = document.getElementById('billPagination');
+        const title = document.getElementById('historyTitle');
+
+        if (tab === 'bill') {
+            tabBill.style.background = '#3b82f6'; tabBill.style.color = '#fff'; tabBill.style.borderColor = '#3b82f6';
+            tabKot.style.background  = '#f8fafc'; tabKot.style.color  = '#64748b'; tabKot.style.borderColor = '#e2e8f0';
+            billContent.style.display = 'block';
+            kotContent.style.display  = 'none';
+            if (billPagination) billPagination.style.display = 'flex';
+            title.innerHTML = '<i class="fas fa-receipt mr-2" style="color: #3b82f6;"></i>Bill History';
+        } else {
+            tabKot.style.background  = '#ea580c'; tabKot.style.color  = '#fff'; tabKot.style.borderColor = '#ea580c';
+            tabBill.style.background = '#f8fafc'; tabBill.style.color = '#64748b'; tabBill.style.borderColor = '#e2e8f0';
+            kotContent.style.display  = 'block';
+            billContent.style.display = 'none';
+            if (billPagination) billPagination.style.display = 'none';
+            title.innerHTML = '<i class="fas fa-fire mr-2" style="color: #ea580c;"></i>KOT History';
+            if (!_kotHistoryLoaded) {
+                loadKotHistory();
+            }
+        }
+    }
+
+    async function loadKotHistory() {
+        const container = document.getElementById('kotOrdersList');
+        container.innerHTML = '<p style="text-align: center; color: #94a3b8; padding: 48px 16px; font-size: 14px;">Loading KOT history…</p>';
+        try {
+            const res = await fetch('{{ route("pos.kot.history") }}');
+            if (!res.ok) {
+                container.innerHTML = '<p style="text-align: center; color: #ef4444; padding: 48px 16px;">Failed to load KOT history</p>';
+                return;
+            }
+            const data = await res.json();
+            _kotHistoryLoaded = true;
+            renderKotHistory(data.data || []);
+        } catch (e) {
+            console.error('KOT history error:', e);
+            container.innerHTML = '<p style="text-align: center; color: #ef4444; padding: 48px 16px;">Error loading KOT history</p>';
+        }
+    }
+
+    function renderKotHistory(orders) {
+        const container = document.getElementById('kotOrdersList');
+        if (!orders || orders.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 48px 16px; color: #94a3b8;"><i class="fas fa-fire text-4xl mb-3 block" style="font-size: 36px; margin-bottom: 12px;"></i><p style="font-size: 14px; margin: 0;">No KOT history found</p></div>';
+            return;
+        }
+
+        container.innerHTML = orders.map(function(order) {
+            const kotDate = order.kot_printed_at ? new Date(order.kot_printed_at).toLocaleDateString('en-US', {
+                month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            }) : '—';
+
+            const tableNum = order.table ? order.table.table_number : null;
+            const locLabel = (order.order_type && order.order_type !== 'dine_in')
+                ? order.order_type.replace('_', ' ')
+                : 'Table ' + (tableNum || '—');
+            const itemCount = order.items ? order.items.length : 0;
+
+            return '<div class="order-card" onclick="viewKotDetails(' + order.id + ')" style="border-color: #fed7aa;">'
+                + '<div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">'
+                + '<div>'
+                + '<p style="font-size: 14px; font-weight: 700; color: #0f172a; margin: 0;">' + escapeHtml(order.order_number) + '</p>'
+                + '<p style="font-size: 11px; color: #64748b; margin: 4px 0 0;"><i class="fas fa-fire mr-1" style="color: #ea580c;"></i>' + kotDate + '</p>'
+                + '</div>'
+                + '<div style="text-align: right;">'
+                + '<p style="font-size: 16px; font-weight: 800; color: #ea580c; margin: 0;">' + itemCount + ' item' + (itemCount !== 1 ? 's' : '') + '</p>'
+                + '<button onclick="reprintKot(event, ' + order.id + ')" class="btn-blue" style="margin-top: 6px; padding: 6px 12px; font-size: 11px; background: #ea580c; border-color: #ea580c;">'
+                + '<i class="fas fa-print mr-1"></i>Reprint</button>'
+                + '</div>'
+                + '</div>'
+                + '<div style="display: flex; gap: 8px; flex-wrap: wrap;">'
+                + (order.token_number ? '<span class="stat-badge" style="background: #fff7ed; color: #c2410c;"><i class="fas fa-ticket-alt mr-1"></i>' + escapeHtml(order.token_number) + '</span>' : '')
+                + '<span class="stat-badge badge-card" style="text-transform: capitalize;">' + escapeHtml(locLabel) + '</span>'
+                + (order.customer_name ? '<span class="stat-badge badge-customer"><i class="fas fa-user mr-1"></i>' + escapeHtml(order.customer_name) + '</span>' : '')
+                + '<span class="stat-badge badge-items"><i class="fas fa-box mr-1"></i>' + itemCount + ' items</span>'
+                + '</div>'
+                + '</div>';
+        }).join('');
+    }
+
+    async function viewKotDetails(orderId) {
+        try {
+            const res = await fetch('{{ route("pos.order.kot.reprint", ":id") }}'.replace(':id', orderId));
+            if (!res.ok) { alert('Failed to load KOT'); return; }
+            const data = await res.json();
+            if (!data.success) { alert(data.message || 'Failed to load KOT'); return; }
+            currentKotOrder = data;
+
+            document.getElementById('kotModalOrderNum').textContent = data.order_number;
+            document.getElementById('kotModalToken').textContent = data.token_number || '—';
+
+            const kotDate = data.kot_printed_at ? new Date(data.kot_printed_at).toLocaleDateString('en-US', {
+                month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            }) : '—';
+            document.getElementById('kotModalDate').textContent = kotDate;
+
+            let locText = '';
+            if (data.order_type && data.order_type !== 'dine_in') {
+                locText = data.order_type.replace('_', ' ').toUpperCase();
+            } else {
+                locText = 'Table ' + (data.table_number || '—') + (data.table_name ? ' — ' + data.table_name : '');
+            }
+            document.getElementById('kotModalLocation').textContent = locText;
+
+            const itemsHtml = (data.items || []).map(item =>
+                '<div style="display: flex; justify-content: space-between; align-items: start; padding: 10px 0; border-bottom: 1px dashed #e2e8f0;">'
+                + '<div>'
+                + '<p style="font-size: 14px; font-weight: 800; margin: 0; color: #0f172a;">' + escapeHtml(item.product_name) + '</p>'
+                + (item.kitchen_notes ? '<p style="font-size: 11px; color: #f59e0b; margin: 3px 0 0;"><i class="fas fa-note-sticky mr-1"></i>' + escapeHtml(item.kitchen_notes) + '</p>' : '')
+                + '</div>'
+                + '<span style="font-size: 18px; font-weight: 900; color: #dc2626; margin-left: 12px;">×' + item.quantity + '</span>'
+                + '</div>'
+            ).join('');
+            document.getElementById('kotModalItems').innerHTML = itemsHtml || '<p style="text-align: center; color: #94a3b8; padding: 16px;">No items</p>';
+
+            const totalQty = (data.items || []).reduce((s, i) => s + i.quantity, 0);
+            document.getElementById('kotModalTotalItems').textContent = 'Total: ' + totalQty + ' item' + (totalQty !== 1 ? 's' : '');
+
+            openModal('kotDetailsModal');
+        } catch (e) {
+            console.error('View KOT error:', e);
+            alert('Error loading KOT');
+        }
+    }
+
+    async function reprintKot(event, orderId) {
+        event.stopPropagation();
+        try {
+            const res = await fetch('{{ route("pos.order.kot.reprint", ":id") }}'.replace(':id', orderId));
+            if (!res.ok) { alert('Failed to load KOT'); return; }
+            const data = await res.json();
+            if (!data.success) { alert(data.message || 'Failed to load KOT'); return; }
+            renderKotBill(data);
+            openModal('printBillModal');
+        } catch (e) {
+            console.error('Reprint KOT error:', e);
+            alert('Error loading KOT');
+        }
+    }
+
+    function reprintFromKotModal() {
+        if (!currentKotOrder) return;
+        renderKotBill(currentKotOrder);
+        closeModal('kotDetailsModal');
+        openModal('printBillModal');
+    }
+
+    function renderKotBill(data) {
+        let locLabel = '';
+        if (data.order_type && data.order_type !== 'dine_in') {
+            locLabel = data.order_type.replace('_', ' ').toUpperCase();
+        } else {
+            locLabel = 'TABLE ' + (data.table_number || '—');
+        }
+
+        const kotDate = data.kot_printed_at
+            ? new Date(data.kot_printed_at).toLocaleString()
+            : new Date().toLocaleString();
+
+        const itemsHtml = (data.items || []).map(item =>
+            '<div style="margin: 8px 0; display: flex; justify-content: space-between; align-items: flex-start;">'
+            + '<div style="flex: 1;">'
+            + '<span style="font-weight: bold;">' + escapeHtml(item.product_name) + '</span>'
+            + (item.kitchen_notes ? '<div class="sm" style="font-size: 9px; padding-left: 4px; color: #555;">&#9658; ' + escapeHtml(item.kitchen_notes) + '</div>' : '')
+            + '</div>'
+            + '<span style="font-weight: 900; font-size: 15px; margin-left: 12px;">x' + item.quantity + '</span>'
+            + '</div>'
+        ).join('');
+
+        const totalQty = (data.items || []).reduce((s, i) => s + i.quantity, 0);
+
+        document.getElementById('billContent').innerHTML =
+            '<div class="center mb8">'
+            + '<div class="bold xl">KITCHEN ORDER</div>'
+            + '<div class="bold mt4" style="background: #000; color: #fff; padding: 3px 10px; display: inline-block; font-size: 13px;">' + locLabel + '</div>'
+            + '</div>'
+            + '<div class="divider-solid"></div>'
+            + '<div class="row sm mt4" style="margin-bottom: 6px;"><span class="label">Order:</span><span class="value bold">' + escapeHtml(data.order_number) + '</span></div>'
+            + (data.token_number ? '<div class="row sm" style="margin-bottom: 6px;"><span class="label">Token:</span><span class="value bold">' + escapeHtml(data.token_number) + '</span></div>' : '')
+            + '<div class="row sm" style="margin-bottom: 6px;"><span class="label">Time:</span><span class="value">' + kotDate + '</span></div>'
+            + '<div class="divider-double"></div>'
+            + itemsHtml
+            + '<div class="divider-solid mt4"></div>'
+            + '<div class="center sm bold mt4">Total Items: ' + totalQty + '</div>';
+    }
 </script>
 
 </body>

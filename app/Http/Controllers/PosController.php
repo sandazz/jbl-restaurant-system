@@ -809,25 +809,57 @@ class PosController extends Controller
         $order->load('items', 'table');
 
         return response()->json([
-            'success'         => true,
-            'order_number'    => $order->order_number,
-            'token_number'    => $order->token_number,
-            'order_type'      => $order->order_type,
-            'table_number'    => $order->table?->table_number,
-            'table_name'      => $order->table?->name,
-            'customer_name'   => $order->customer_name,
-            'customer_phone'  => $order->customer_phone,
-            'subtotal'        => (float) $order->subtotal,
-            'discount_amount' => (float) $order->discount_amount,
-            'tax_amount'      => (float) $order->tax_amount,
-            'total'           => (float) $order->total,
-            'payment_method'  => $order->payment_method,
-            'printed_at'      => $order->printed_at,
-            'items'           => $order->items->map(fn($item) => [
+            'success'               => true,
+            'order_number'          => $order->order_number,
+            'token_number'          => $order->token_number,
+            'order_type'            => $order->order_type,
+            'table_number'          => $order->table?->table_number,
+            'table_name'            => $order->table?->name,
+            'customer_name'         => $order->customer_name,
+            'customer_phone'        => $order->customer_phone,
+            'subtotal'              => (float) $order->subtotal,
+            'discount_amount'       => (float) $order->discount_amount,
+            'service_charge_amount' => (float) $order->service_charge_amount,
+            'total'                 => (float) $order->total,
+            'payment_method'        => $order->payment_method,
+            'amount_paid'           => (float) $order->amount_paid,
+            'change_amount'         => (float) $order->change_amount,
+            'printed_at'            => $order->printed_at,
+            'items'                 => $order->items->map(fn($item) => [
                 'product_name'  => $item->product_name,
                 'quantity'      => $item->quantity,
                 'unit_price'    => (float) $item->unit_price,
                 'subtotal'      => (float) $item->subtotal,
+                'kitchen_notes' => $item->kitchen_notes,
+            ]),
+        ]);
+    }
+
+    public function kotHistory()
+    {
+        $orders = Order::whereNotNull('kot_printed_at')
+            ->with('items', 'table')
+            ->latest('kot_printed_at')
+            ->paginate(20);
+
+        return response()->json($orders);
+    }
+
+    public function reprintKot(Order $order)
+    {
+        $order->load('items', 'table');
+
+        return response()->json([
+            'success'        => true,
+            'order_number'   => $order->order_number,
+            'token_number'   => $order->token_number,
+            'order_type'     => $order->order_type,
+            'table_number'   => $order->table?->table_number,
+            'table_name'     => $order->table?->name,
+            'kot_printed_at' => $order->kot_printed_at,
+            'items'          => $order->items->map(fn($item) => [
+                'product_name'  => $item->product_name,
+                'quantity'      => $item->quantity,
                 'kitchen_notes' => $item->kitchen_notes,
             ]),
         ]);

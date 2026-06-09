@@ -663,11 +663,21 @@
 <!-- Order History Modal -->
 <div id="orderHistoryModal" class="modal-overlay">
     <div class="modal-box" style="max-width:600px; max-height:90vh;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
             <h2 style="font-size:18px; font-weight:800; color:#0f172a; margin:0;"><i class="fas fa-history" style="color:#3b82f6; margin-right:6px;"></i>Order History</h2>
             <button onclick="closeModal('orderHistoryModal')" style="background:none; border:none; font-size:22px; cursor:pointer; color:#94a3b8;">&times;</button>
         </div>
-        <div id="orderHistoryList" style="display:flex; flex-direction:column; gap:12px; max-height:calc(90vh - 120px); overflow-y:auto;"></div>
+        <!-- History tabs -->
+        <div style="display:flex; gap:8px; margin-bottom:14px; padding-bottom:12px; border-bottom:2px solid #f1f5f9;">
+            <button id="historyTabBill" onclick="switchHistoryTab('bill')" style="padding:7px 16px; border-radius:8px; font-size:12px; font-weight:700; border:2px solid #3b82f6; background:#3b82f6; color:#fff; cursor:pointer; transition:all 0.15s;">
+                <i class="fas fa-receipt" style="margin-right:5px;"></i>Bill History
+            </button>
+            <button id="historyTabKot" onclick="switchHistoryTab('kot')" style="padding:7px 16px; border-radius:8px; font-size:12px; font-weight:700; border:2px solid #e2e8f0; background:#f8fafc; color:#64748b; cursor:pointer; transition:all 0.15s;">
+                <i class="fas fa-fire-burner" style="margin-right:5px;"></i>KOT History
+            </button>
+        </div>
+        <div id="orderHistoryList" style="display:flex; flex-direction:column; gap:12px; max-height:calc(90vh - 175px); overflow-y:auto;"></div>
+        <div id="kotHistoryList" style="display:none; flex-direction:column; gap:12px; max-height:calc(90vh - 175px); overflow-y:auto;"></div>
     </div>
 </div>
 
@@ -2783,7 +2793,7 @@
     }
 
     // ─── receipt building blocks ─────────────────────────────────────────────
-    function rcptHeader(title) {
+    function rcptHeader(title, subtitle) {
         return '<div class="center mb8">'
             + '<img src="/images/logo.png" alt="Logo" style="max-width:60mm; height:auto; margin-bottom:8px;">'
             + '<div class="bold xl">JBL FOOD CORNER </div>'
@@ -2791,6 +2801,7 @@
             + '<div class="sm">NO 41, NAWALA ROAD , NUGEGODA</div>'
             + '<div class="divider-double mt8"></div>'
             + '<div class="bold lg mt4">' + title + '</div>'
+            + (subtitle ? '<div class="sm mt2" style="letter-spacing:0.05em;">' + subtitle + '</div>' : '')
             + '</div>';
     }
 
@@ -2899,8 +2910,11 @@
     // ═══════════════════════════════════════════
 
     let currentOrderForDetails = null;
+    let _kotHistoryLoaded = false;
 
     async function loadOrderHistory() {
+        _kotHistoryLoaded = false;
+        document.getElementById('kotHistoryList').innerHTML = '';
         try {
             showLoading();
             const res = await fetch('{{ route("pos.order.history") }}');
@@ -2911,6 +2925,7 @@
             }
             const data = await res.json();
             renderOrderHistory(data.data || []);
+            switchHistoryTab('bill');
             openModal('orderHistoryModal');
             hideLoading();
         } catch (e) {
@@ -2951,6 +2966,129 @@
                 + '</div>'
                 + '</div>';
         }).join('');
+    }
+
+    function switchHistoryTab(tab) {
+        const billBtn  = document.getElementById('historyTabBill');
+        const kotBtn   = document.getElementById('historyTabKot');
+        const billList = document.getElementById('orderHistoryList');
+        const kotList  = document.getElementById('kotHistoryList');
+
+        if (tab === 'bill') {
+            billBtn.style.background  = '#3b82f6'; billBtn.style.color  = '#fff'; billBtn.style.borderColor  = '#3b82f6';
+            kotBtn.style.background   = '#f8fafc'; kotBtn.style.color   = '#64748b'; kotBtn.style.borderColor = '#e2e8f0';
+            billList.style.display = 'flex';
+            kotList.style.display  = 'none';
+        } else {
+            kotBtn.style.background   = '#ea580c'; kotBtn.style.color   = '#fff'; kotBtn.style.borderColor   = '#ea580c';
+            billBtn.style.background  = '#f8fafc'; billBtn.style.color  = '#64748b'; billBtn.style.borderColor = '#e2e8f0';
+            kotList.style.display  = 'flex';
+            billList.style.display = 'none';
+            if (!_kotHistoryLoaded) {
+                loadKotHistory();
+            }
+        }
+    }
+
+    async function loadKotHistory() {
+        const container = document.getElementById('kotHistoryList');
+        container.innerHTML = '<p style="text-align:center; color:#94a3b8; padding:32px 12px; font-size:13px;">Loading KOT history…</p>';
+        try {
+            const res = await fetch('{{ route("pos.kot.history") }}');
+            if (!res.ok) {
+                container.innerHTML = '<p style="text-align:center; color:#ef4444; padding:32px 12px; font-size:13px;">Failed to load KOT history</p>';
+                return;
+            }
+            const data = await res.json();
+            _kotHistoryLoaded = true;
+            renderKotHistory(data.data || []);
+        } catch (e) {
+            console.error('Load KOT history error:', e);
+            container.innerHTML = '<p style="text-align:center; color:#ef4444; padding:32px 12px; font-size:13px;">Error loading KOT history</p>';
+        }
+    }
+
+    function renderKotHistory(orders) {
+        const container = document.getElementById('kotHistoryList');
+        if (!orders || orders.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:#94a3b8; padding:32px 12px; font-size:13px;">No KOT history found</p>';
+            return;
+        }
+
+        container.innerHTML = orders.map(function(order) {
+            const kotDate = order.kot_printed_at ? new Date(order.kot_printed_at).toLocaleDateString('en-US', {
+                month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            }) : '—';
+
+            const tableNum  = order.table ? order.table.table_number : null;
+            const locLabel  = (order.order_type && order.order_type !== 'dine_in')
+                ? order.order_type.replace('_', ' ')
+                : 'Table ' + (tableNum || '—');
+            const itemCount = order.items ? order.items.length : 0;
+
+            return '<div style="padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; cursor:pointer; transition:all 0.2s; background:#fff;" onclick="reprintKotFromHistory(' + order.id + ')" onmouseover="this.style.borderColor=\'#ea580c\'; this.style.boxShadow=\'0 4px 12px rgba(234,88,12,0.15)\';" onmouseout="this.style.borderColor=\'#e2e8f0\'; this.style.boxShadow=\'none\';">'
+                + '<div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:8px;">'
+                + '<div>'
+                + '<p style="font-size:13px; font-weight:700; color:#0f172a; margin:0;">' + escapeHtml(order.order_number) + '</p>'
+                + '<p style="font-size:11px; color:#64748b; margin:2px 0 0;">' + kotDate + '</p>'
+                + '</div>'
+                + '<span style="font-size:13px; font-weight:800; color:#ea580c;">' + itemCount + ' item' + (itemCount !== 1 ? 's' : '') + '</span>'
+                + '</div>'
+                + '<div style="display:flex; gap:8px; align-items:center; font-size:11px; flex-wrap:wrap;">'
+                + (order.token_number ? '<span style="background:#fff7ed; color:#c2410c; padding:2px 8px; border-radius:4px; font-weight:600;">' + escapeHtml(order.token_number) + '</span>' : '')
+                + '<span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:4px; font-weight:600; text-transform:capitalize;">' + escapeHtml(locLabel) + '</span>'
+                + (order.customer_name ? '<span style="background:#eff6ff; color:#1d4ed8; padding:2px 8px; border-radius:4px; font-weight:600;">' + escapeHtml(order.customer_name) + '</span>' : '')
+                + '</div>'
+                + '</div>';
+        }).join('');
+    }
+
+    async function reprintKotFromHistory(orderId) {
+        closeModal('orderHistoryModal');
+        showLoading();
+        try {
+            const res = await fetch('{{ route("pos.order.kot.reprint", ":id") }}'.replace(':id', orderId));
+            if (!res.ok) {
+                toast('Failed to load KOT data', 'error');
+                hideLoading();
+                openModal('orderHistoryModal');
+                return;
+            }
+            const data = await res.json();
+            if (!data.success) {
+                toast(data.message || 'Failed to load KOT', 'error');
+                hideLoading();
+                openModal('orderHistoryModal');
+                return;
+            }
+
+            document.getElementById('kotOrderNumber').textContent = 'Order #' + data.order_number;
+            if (data.table_name) {
+                document.getElementById('kotTableNumber').textContent = 'Table ' + data.table_number + ' — ' + data.table_name;
+            } else if (data.order_type && data.order_type !== 'dine_in') {
+                document.getElementById('kotTableNumber').textContent = data.order_type.replace('_', ' ').toUpperCase();
+            } else {
+                document.getElementById('kotTableNumber').textContent = 'Table ' + (data.table_number || '—');
+            }
+
+            const tokenEl = document.getElementById('kotTokenNumber');
+            if (data.token_number) {
+                tokenEl.textContent = 'Token: ' + data.token_number;
+                tokenEl.style.display = 'block';
+            } else {
+                tokenEl.style.display = 'none';
+            }
+
+            renderKotItems(data.items);
+            currentKotContent = buildKotHtml(data);
+            hideLoading();
+            openModal('kotModal');
+        } catch (e) {
+            console.error('Reprint KOT error:', e);
+            hideLoading();
+            toast('Error loading KOT', 'error');
+            openModal('orderHistoryModal');
+        }
     }
 
     async function viewOrderDetails(orderId) {
@@ -3037,31 +3175,36 @@
         }
     }
 
-    function generateAndPrintBill(billData) {
-        const header = rcptHeader('RECEIPT');
-        const meta = rcptMeta([
-            ['Order #', escapeHtml(billData.order_number)],
-            ['Token #', escapeHtml(billData.token_number)],
-            ['Date', billData.printed_at ? new Date(billData.printed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'],
-            ['Type', billData.order_type.charAt(0).toUpperCase() + billData.order_type.slice(1).replace('_', ' ')],
-        ]);
+    function generateAndPrintBill(d) {
+        const methodLabel = { cash: 'Cash', card: 'Card', bank_transfer: 'Bank Transfer', mixed: 'Mixed', split: 'Split Payment' };
+        const locLabel = (d.order_type && d.order_type !== 'dine_in')
+            ? d.order_type.replace('_', ' ').toUpperCase()
+            : 'T-' + (d.table_number || '—') + (d.table_name ? ' ' + d.table_name : '');
 
-        const customerLine = billData.customer_name ? '<div class="row sm"><span class="label">Customer</span><span class="value">' + escapeHtml(billData.customer_name) + '</span></div>' : '';
+        const metaRows = [
+            ['Order', escapeHtml(d.order_number)],
+            ['Type',  locLabel],
+            ['Date',  d.printed_at ? new Date(d.printed_at).toLocaleString() : new Date().toLocaleString()],
+        ];
+        if (d.token_number) {
+            metaRows.splice(1, 0, ['Token', escapeHtml(d.token_number)]);
+        }
 
-        const itemHeader = rcptItemHeader();
-        const itemRows = rcptItemRows(billData.items);
-        const totals = rcptTotals(billData.subtotal, billData.discount_amount, billData.total);
+        const html = rcptHeader('RECEIPT', 'Re-Print Receipt')
+            + rcptMeta(metaRows)
+            + (d.customer_name  ? '<div class="row sm mt4"><span class="label">Customer</span><span class="value">' + escapeHtml(d.customer_name) + '</span></div>' : '')
+            + (d.customer_phone ? '<div class="row sm"><span class="label">Phone</span><span class="value">' + escapeHtml(d.customer_phone) + '</span></div>' : '')
+            + rcptItemHeader()
+            + rcptItemRows(d.items)
+            + rcptTotalsWithLabel(d.subtotal, d.discount_amount || 0, null, d.service_charge_amount || 0, d.total)
+            + '<div class="row mt4"><span class="label">Paid (' + (methodLabel[d.payment_method] || d.payment_method) + ')</span><span class="value bold">Rs.' + d.amount_paid.toFixed(2) + '</span></div>'
+            + (d.change_amount > 0 ? '<div class="row"><span class="label">Change</span><span class="value">Rs.' + d.change_amount.toFixed(2) + '</span></div>' : '')
+            + '<div class="divider-dashed mt8"></div>'
+            + '<div class="center sm mt4">Thank you for dining with us!</div>'
+            + '<div class="center sm mt2">We look forward to seeing you again.</div>';
 
-        const footer = '<div class="center sm mt8">'
-            + '<p style="margin:0;">Thank you for your order!</p>'
-            + '<p style="margin:4px 0 0;">Contact: +94 702 398 400</p>'
-            + '<p style="margin:4px 0 0;">www.jblfoodcorner.com</p>'
-            + '</div>';
-
-        currentBillContent = header + meta + customerLine + itemHeader + itemRows + totals + footer;
-
-        // Show in modal
-        document.getElementById('billContent').innerHTML = currentBillContent;
+        currentBillContent = html;
+        document.getElementById('billContent').innerHTML = html;
         openModal('finalBillModal');
     }
 
