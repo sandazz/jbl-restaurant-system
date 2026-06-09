@@ -104,6 +104,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/pos/order-history', [PosController::class, 'orderHistory'])->name('pos.order.history');
     Route::get('/order-history', [PosController::class, 'orderHistoryPage'])->name('order-history.index');
     Route::get('/pos/order/{order}/bill-reprint', [PosController::class, 'reprintBill'])->name('pos.order.bill.reprint');
+    Route::get('/pos/kot-history', [PosController::class, 'kotHistory'])->name('pos.kot.history');
+    Route::get('/pos/order/{order}/kot-reprint', [PosController::class, 'reprintKot'])->name('pos.order.kot.reprint');
 
     // Stock adjustments
     Route::get('/inventory/adjustments', [StockAdjustmentController::class, 'index'])->name('stock.adjustments.index');
