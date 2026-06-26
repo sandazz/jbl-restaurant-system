@@ -165,7 +165,11 @@
             <div>
                 @php
                     $sortedModules = $modules
-                        ->sortByDesc(fn($module) => $module->route === 'pos.index')
+                        ->sortBy(fn($module) =>
+                            $module->route === 'pos.index' ? -1 :
+                            ($module->route === 'inventory.index' ? 0 :
+                            ($module->route === 'customers.index' ? 1 : 2))
+                        )
                         ->values();
                 @endphp
                 <div class="flex items-center justify-between mb-5">

@@ -43,6 +43,7 @@ class PosController extends Controller
     public function getTokens()
     {
         $tokens = Order::where('status', '!=', 'completed')
+            ->whereNotNull('token_number')
             ->latest('created_at')
             ->get()
             ->map(function ($order) {
@@ -135,7 +136,8 @@ class PosController extends Controller
             'waiter_name' => 'nullable|string',
         ]);
 
-        $tokenNumber = $this->generateTokenNumber();
+        $isTakeaway = $validated['order_type'] === 'takeaway';
+        $tokenNumber = $isTakeaway ? null : $this->generateTokenNumber();
 
         $order = Order::create([
             'order_number' => 'ORD-' . Str::random(8),
@@ -145,9 +147,9 @@ class PosController extends Controller
             'customer_name' => $validated['customer_name'] ?? null,
             'customer_phone' => $validated['customer_phone'] ?? null,
             'user_id' => Auth::id(),
-               'service_charge_enabled' => true,
-               'service_charge_rate' => 8.00,
-               'service_charge_amount' => 0,
+            'service_charge_enabled' => !$isTakeaway,
+            'service_charge_rate' => !$isTakeaway ? 8.00 : 0,
+            'service_charge_amount' => 0,
             'order_type' => $validated['order_type'],
             'waiter_name' => $validated['waiter_name'] ?? ($user?->name ?? 'Unknown'),
         ]);
@@ -482,7 +484,9 @@ class PosController extends Controller
 
     private function generateTokenNumber(): string
     {
-        $count = Order::whereDate('created_at', today())->count() + 1;
+        $count = Order::whereDate('created_at', today())
+            ->whereNotNull('token_number')
+            ->count() + 1;
         return str_pad($count, 4, '0', STR_PAD_LEFT);
     }
 

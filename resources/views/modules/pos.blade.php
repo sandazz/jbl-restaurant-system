@@ -792,9 +792,11 @@
     }
 
     function updateTableStatusBadge() {
+        const badge = document.getElementById('tableStatusBadge');
+        if (!badge) return;
         const occupied = allTables.filter(t => t.total > 0).length;
         const total    = allTables.length;
-        document.getElementById('tableStatusBadge').textContent = occupied + '/' + total + ' occupied';
+        badge.textContent = occupied + '/' + total + ' occupied';
     }
 
     function filterTables(section, btn) {
