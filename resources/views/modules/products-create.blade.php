@@ -94,11 +94,11 @@
             <div class="p-6">
                 <div class="grid grid-cols-3 gap-5">
                     <div>
-                        <label for="selling_price" class="block text-sm font-semibold text-gray-700 mb-1.5">Selling Price</label>
+                        <label for="selling_price" class="block text-sm font-semibold text-gray-700 mb-1.5">Selling Price <span class="text-red-500">*</span></label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 text-sm font-medium pointer-events-none">Rs.</span>
-                            <input type="number" name="selling_price" id="selling_price" value="{{ old('selling_price') }}" step="0.01" min="0"
-                                class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500"
+                            <input type="number" name="selling_price" id="selling_price" value="{{ old('selling_price') }}" step="0.01" min="0" required
+                                class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 {{ $errors->has('selling_price') ? 'border-red-400 bg-red-50' : '' }}"
                                 placeholder="0.00">
                         </div>
                         @error('selling_price') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror

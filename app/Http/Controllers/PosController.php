@@ -19,19 +19,17 @@ class PosController extends Controller
 {
     public function index()
     {
-        $tables       = RestaurantTable::all()->load('activeOrder.items');
-        $categories   = Category::where('status', 'active')->orderBy('sort_order')->get();
-        $products     = Product::where('status', 'active')->get();
+        $categories   = Category::where('status', 'active')->orderBy('sort_order')->select('id', 'name', 'icon')->get();
+        $products     = Product::where('status', 'active')->select('id', 'name', 'category_id', 'selling_price', 'price', 'image', 'quantity', 'is_unlimited_stock')->get();
         $user = Auth::user();
         $modules = $user ? $user->role->modules()->get() : collect();
-        $tierDiscounts = TierDiscount::activeMap(); // ['VIP' => 15.0, 'Moderate' => 10.0, ...]
+        $tierDiscounts = TierDiscount::activeMap();
 
         $hasOpenShift = ClerkBalancing::where('user_id', Auth::id())
             ->where('status', 'open')
             ->exists();
 
         return view('modules.pos', [
-            'tables'        => $tables,
             'categories'    => $categories,
             'products'      => $products,
             'modules'       => $modules,
@@ -44,6 +42,8 @@ class PosController extends Controller
     {
         $tokens = Order::where('status', '!=', 'completed')
             ->whereNotNull('token_number')
+            ->with('table')
+            ->withCount('items')
             ->latest('created_at')
             ->get()
             ->map(function ($order) {
@@ -51,7 +51,7 @@ class PosController extends Controller
                     'order_id' => $order->id,
                     'token_number' => $order->token_number,
                     'order_number' => $order->order_number,
-                    'items_count' => $order->items->count(),
+                    'items_count' => $order->items_count,
                     'customer_name' => $order->customer_name,
                     'table_number' => $order->table?->table_number,
                     'total' => (float) $order->total,
@@ -63,7 +63,9 @@ class PosController extends Controller
 
     public function getTables()
     {
-        $tables = RestaurantTable::with('activeOrders.items')->get()->map(function ($table) {
+        $tables = RestaurantTable::with(['activeOrders' => function($q) {
+            $q->withCount('items');
+        }])->get()->map(function ($table) {
             $activeOrders = $table->activeOrders;
             $firstOrder = $activeOrders->first();
 
@@ -77,12 +79,12 @@ class PosController extends Controller
                 'occupied_at' => $table->occupied_at,
                 'has_order' => $activeOrders->count() > 0,
                 'order_id' => $firstOrder?->id,
-                'order_items_count' => $firstOrder?->items->count() ?? 0,
+                'order_items_count' => $firstOrder?->items_count ?? 0,
                 'active_tokens' => $activeOrders->map(fn($order) => [
                     'order_id' => $order->id,
                     'token_number' => $order->token_number,
                     'order_number' => $order->order_number,
-                    'items_count' => $order->items->count(),
+                    'items_count' => $order->items_count,
                     'customer_name' => $order->customer_name,
                     'total' => (float) $order->total,
                 ])->toArray(),
@@ -484,10 +486,11 @@ class PosController extends Controller
 
     private function generateTokenNumber(): string
     {
-        $count = Order::whereDate('created_at', today())
+        $maxToken = Order::whereDate('created_at', today())
             ->whereNotNull('token_number')
-            ->count() + 1;
-        return str_pad($count, 4, '0', STR_PAD_LEFT);
+            ->selectRaw('MAX(CAST(token_number AS UNSIGNED)) as max_token')
+            ->first()?->max_token ?? 0;
+        return str_pad($maxToken + 1, 4, '0', STR_PAD_LEFT);
     }
 
     private function updateOrderTotals(Order $order)
