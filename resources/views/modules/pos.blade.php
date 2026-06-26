@@ -2638,29 +2638,11 @@
 
     async function closeCurrentOrder() {
         if (!currentOrder || !currentOrder.id) return;
-        if (currentOrder.items && currentOrder.items.length > 0) {
-            if (!confirm('This order has items. Close anyway and discard all items?')) return;
-        }
-
-        // Call backend to cancel the order and free the table
-        try {
-            const res = await fetch('{{ route("pos.order.close_table", ":id") }}'.replace(':id', currentOrder.id), {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
-            });
-            if (!res.ok) {
-                toast('Failed to close table', 'error');
-                return;
-            }
-        } catch (e) {
-            console.error('Close order error:', e);
-            toast('Error closing table', 'error');
-            return;
-        }
 
         resetOrder();
-        await loadTables();
-        toast('Table deselected', 'success');
+        renderTableView();
+        renderBill();
+        toast('Order panel closed', 'success');
     }
 
     async function cancelToken() {
