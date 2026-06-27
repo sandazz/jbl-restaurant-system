@@ -11,9 +11,20 @@ use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $products      = Product::with(['category', 'supplierRecord'])->paginate(10);
+        $query = Product::with(['category', 'supplierRecord']);
+
+        if ($request->has('search') && $request->filled('search')) {
+            $search = $request->get('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('product_code', 'like', "%{$search}%")
+                  ->orWhere('barcode', 'like', "%{$search}%");
+            });
+        }
+
+        $products      = $query->paginate(10)->appends(request()->query());
         $lowStockCount = Product::lowStock()->count();
         $modules       = auth()->user()->role->modules()->get();
 

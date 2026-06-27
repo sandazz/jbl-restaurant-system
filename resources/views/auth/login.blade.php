@@ -402,7 +402,7 @@
                     </button>
                 </form>
 
-                <!-- Demo Credentials -->
+                <!-- Demo Credentials
                 <div class="demo-box">
                     <div class="demo-title">Demo Credentials</div>
 
@@ -423,7 +423,7 @@
                         <strong>Cashier:</strong> cashier@restaurant.local
                         <div class="demo-password">Password: password</div>
                     </div>
-                </div>
+                </div> -->
             </div>
         </div>
     </div>

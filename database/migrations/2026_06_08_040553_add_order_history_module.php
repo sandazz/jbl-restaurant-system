@@ -11,12 +11,23 @@ return new class extends Migration
      */
     public function up(): void
     {
-        \App\Models\Module::create([
+        $module = \App\Models\Module::create([
             'name' => 'Order History',
             'description' => 'View and manage completed orders with full details',
             'route' => 'order-history.index',
             'icon' => 'history',
         ]);
+
+        // Grant access to Cashier role
+        $cashierRole = \App\Models\Role::where('name', 'Cashier')->first();
+        if ($cashierRole) {
+            \Illuminate\Support\Facades\DB::table('role_module')->insertOrIgnore([
+                'role_id' => $cashierRole->id,
+                'module_id' => $module->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
     }
 
     /**

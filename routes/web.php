@@ -56,11 +56,7 @@ Route::middleware('auth')->group(function () {
     // Product (Inventory) CRUD routes
     Route::get('/products/low-stock', [ProductController::class, 'lowStock'])->name('products.low-stock');
     Route::resource('products', ProductController::class);
-    Route::get('/inventory', function () {
-        $user = Auth::user();
-        $modules = $user->role->modules()->get();
-        return app(ProductController::class)->index();
-    })->name('inventory.index');
+    Route::get('/inventory', [ProductController::class, 'index'])->name('inventory.index');
 
     // Employee CRUD routes
     Route::resource('employees', EmployeeController::class);

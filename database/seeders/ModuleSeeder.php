@@ -133,5 +133,16 @@ class ModuleSeeder extends Seeder
                 ]);
             }
         }
+
+        // Grant Cashier access to Order History module as well
+        $orderHistoryModule = DB::table('modules')->where('name', 'Order History')->first();
+        if ($orderHistoryModule) {
+            DB::table('role_module')->insertOrIgnore([
+                'role_id' => $cashierId,
+                'module_id' => $orderHistoryModule->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
     }
 }

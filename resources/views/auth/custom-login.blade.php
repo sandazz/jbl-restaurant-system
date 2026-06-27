@@ -228,47 +228,6 @@
             transform: translateY(0);
         }
 
-        .demo-box {
-            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-            border: 1px solid #fecaca;
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 30px;
-        }
-
-        .demo-title {
-            font-size: 12px;
-            font-weight: 700;
-            color: #374151;
-            margin-bottom: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .demo-item {
-            font-size: 13px;
-            margin-bottom: 10px;
-            color: #4b5563;
-        }
-
-        .demo-item i {
-            color: #dc2626;
-            margin-right: 8px;
-            width: 14px;
-            text-align: center;
-        }
-
-        .demo-item strong {
-            color: #1f2937;
-        }
-
-        .demo-password {
-            font-size: 11px;
-            color: #9ca3af;
-            margin-left: 22px;
-            margin-top: 4px;
-        }
-
         .error-box {
             background: #fef2f2;
             border: 1px solid #fecaca;
@@ -405,29 +364,6 @@
                         Sign In
                     </button>
                 </form>
-
-                <!-- Demo Credentials -->
-                <div class="demo-box">
-                    <div class="demo-title">Demo Credentials</div>
-
-                    <div class="demo-item">
-                        <i class="fas fa-user-shield"></i>
-                        <strong>Admin:</strong> admin@restaurant.local
-                        <div class="demo-password">Password: password</div>
-                    </div>
-
-                    <div class="demo-item">
-                        <i class="fas fa-user-tie"></i>
-                        <strong>Manager:</strong> manager@restaurant.local
-                        <div class="demo-password">Password: password</div>
-                    </div>
-
-                    <div class="demo-item">
-                        <i class="fas fa-user"></i>
-                        <strong>Cashier:</strong> cashier@restaurant.local
-                        <div class="demo-password">Password: password</div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
