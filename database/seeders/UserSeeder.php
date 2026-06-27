@@ -27,7 +27,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'Cashier User',
-                'email' => 'cashier@restaurant.local',
+                'email' => 'cashier@gmail.com',
                 'password' => Hash::make('cashier@2026'),
                 'role_id' => $cashierRoleId,
                 'status' => 'active',

@@ -6,12 +6,13 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class ReportsController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $modules = auth()->user()->role->modules()->get();
 
@@ -39,12 +40,12 @@ class ReportsController extends Controller
                             ->whereDate('created_at', $date)
                             ->sum('total');
             return [
-                'label'   => $date->format('D d'),   // e.g. "Mon 26"
+                'label'   => $date->format('D d'),
                 'revenue' => (float) $revenue,
             ];
         });
-        $chartLabels  = $last7Days->pluck('label')->toJson();
-        $chartData    = $last7Days->pluck('revenue')->toJson();
+        $chartLabels = $last7Days->pluck('label')->toJson();
+        $chartData   = $last7Days->pluck('revenue')->toJson();
 
         // ── Recent sales table (last 20 completed orders) ───────────
         $recentSales = Order::where('status', 'completed')
@@ -65,7 +66,6 @@ class ReportsController extends Controller
                        ->limit(10)
                        ->get()
                        ->map(function ($row) {
-                           // Attach category name if product still exists
                            $product = Product::with('category')->find($row->product_id);
                            $row->category_name = $product?->category?->name ?? '—';
                            return $row;
@@ -80,12 +80,44 @@ class ReportsController extends Controller
                                  ->groupBy('payment_method')
                                  ->get();
 
+        // ── Full sales table with date filter + pagination ──────────
+        $dateFrom = $request->input('date_from');
+        $dateTo   = $request->input('date_to');
+        $search   = $request->input('search');
+
+        $salesQuery = Order::where('status', 'completed')
+                           ->with(['table', 'items'])
+                           ->latest();
+
+        if ($dateFrom) {
+            $salesQuery->whereDate('created_at', '>=', Carbon::parse($dateFrom)->startOfDay());
+        }
+        if ($dateTo) {
+            $salesQuery->whereDate('created_at', '<=', Carbon::parse($dateTo)->endOfDay());
+        }
+        if ($search) {
+            $salesQuery->where(function ($q) use ($search) {
+                $q->where('order_number', 'like', "%{$search}%")
+                  ->orWhere('token_number', 'like', "%{$search}%")
+                  ->orWhere('customer_name', 'like', "%{$search}%")
+                  ->orWhere('customer_phone', 'like', "%{$search}%");
+            });
+        }
+
+        // Summary for the filtered range
+        $filteredTotal  = (clone $salesQuery)->sum('total');
+        $filteredCount  = (clone $salesQuery)->count();
+
+        $allSales = $salesQuery->paginate(15)->withQueryString();
+
         return view('modules.reports', compact(
             'modules',
             'totalRevenue', 'todaySales', 'monthRevenue',
             'totalOrders', 'avgOrderValue', 'topProduct',
             'chartLabels', 'chartData',
-            'recentSales', 'topProducts', 'paymentBreakdown'
+            'recentSales', 'topProducts', 'paymentBreakdown',
+            'allSales', 'dateFrom', 'dateTo', 'search',
+            'filteredTotal', 'filteredCount'
         ));
     }
 

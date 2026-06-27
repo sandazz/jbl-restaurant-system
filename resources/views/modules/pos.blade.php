@@ -1112,8 +1112,6 @@
             return;
         }
 
-        showLoading();
-
         const res = await fetch('{{ route("pos.order.create") }}', {
             method: 'POST',
             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
@@ -1123,7 +1121,6 @@
         });
 
         if (!res.ok) {
-            hideLoading();
             toast('Failed to create new token', 'error');
             return;
         }
@@ -1155,10 +1152,8 @@
 
         renderTableView();
         renderBill();
-        hideLoading();
         toast('Token ' + data.token_number + ' created!', 'success');
-        // Load tables list asynchronously so it doesn't interfere with order entry
-        setTimeout(function() { loadTables(); }, 500);
+        loadTables(); // fire and forget — update sidebar without blocking
     }
 
     async function startNewTokenAtTable() {
@@ -1480,13 +1475,14 @@
         if (!res.ok || !data.success) {
             console.error('Add item failed:', data);
             toast(data.message || 'Failed to add item to order', 'error');
-            await syncOrder();
-            await refreshProducts();
+            syncOrder();
+            refreshProducts();
             return;
         }
         applyProductStockUpdate(data.product);
+        // Must sync after add so items get real DB ids (needed for remove/update)
         await syncOrder();
-        await loadTables();  // Refresh token list to show updated total
+        loadTables(); // fire and forget — update sidebar total
     }
 
     async function syncOrder() {
@@ -1525,14 +1521,12 @@
             const data = await res.json().catch(function() { return {}; });
             if (!res.ok || !data.success) {
                 toast(data.message || 'Failed to update item', 'error');
-                await syncOrder();
-                await refreshProducts();
+                syncOrder();
+                refreshProducts();
                 return;
             }
             applyProductStockUpdate(data.product);
-            await syncOrder();
-            // Update token list to show new total
-            await loadTables();
+            loadTables(); // fire and forget
         }
     }
 
@@ -1556,14 +1550,12 @@
             const data = await res.json().catch(function() { return {}; });
             if (!res.ok || !data.success) {
                 toast(data.message || 'Failed to update item', 'error');
-                await syncOrder();
-                await refreshProducts();
+                syncOrder();
+                refreshProducts();
                 return;
             }
             applyProductStockUpdate(data.product);
-            await syncOrder();
-            // Update token list to show new total
-            await loadTables();
+            loadTables(); // fire and forget
         }
     }
 
@@ -1583,13 +1575,12 @@
         const data = await res.json().catch(function() { return {}; });
         if (!res.ok || !data.success) {
             toast(data.message || 'Failed to update item', 'error');
-            await syncOrder();
-            await refreshProducts();
+            syncOrder();
+            refreshProducts();
             return;
         }
         applyProductStockUpdate(data.product);
-        await syncOrder();
-        await loadTables();  // Update token list
+        loadTables(); // fire and forget
     }
 
     async function decreaseQty(itemId) {
@@ -1607,13 +1598,12 @@
         const data = await res.json().catch(function() { return {}; });
         if (!res.ok || !data.success) {
             toast(data.message || 'Failed to update item', 'error');
-            await syncOrder();
-            await refreshProducts();
+            syncOrder();
+            refreshProducts();
             return;
         }
         applyProductStockUpdate(data.product);
-        await syncOrder();
-        await loadTables();  // Update token list
+        loadTables(); // fire and forget
     }
 
     // Remove item by array index (works for items with or without ID)
@@ -1621,8 +1611,9 @@
         if (!currentOrder || !currentOrder.items || !currentOrder.items[index]) return;
         const item = currentOrder.items[index];
 
-        // Remove from UI immediately
+        // Remove from UI immediately and capture remaining count before any async
         currentOrder.items.splice(index, 1);
+        const remainingCount = currentOrder.items.length;
         recalcOrderTotals();
         renderBill();
 
@@ -1635,19 +1626,24 @@
             const data = await res.json().catch(function() { return {}; });
             if (!res.ok || !data.success) {
                 toast(data.message || 'Failed to remove item', 'error');
-                await syncOrder();
-                await refreshProducts();
+                syncOrder();
+                refreshProducts();
                 return;
             }
             applyProductStockUpdate(data.product);
-            await syncOrder();
-            // Update token list to show new total
-            await loadTables();
+        }
+
+        if (remainingCount === 0) {
+            await cancelTokenSilently();
+        } else {
+            loadTables();
         }
     }
 
     async function removeItem(itemId) {
         currentOrder.items = currentOrder.items.filter(function(i) { return i.id !== itemId; });
+        // Capture remaining count before any async calls
+        const remainingCount = currentOrder.items.length;
         recalcOrderTotals();
         renderBill();
         const res = await fetch('{{ route("pos.item.remove", [":id", ":item"]) }}'.replace(':id', currentOrder.id).replace(':item', itemId), {
@@ -1657,12 +1653,33 @@
         const data = await res.json().catch(function() { return {}; });
         if (!res.ok || !data.success) {
             toast(data.message || 'Failed to remove item', 'error');
-            await syncOrder();
-            await refreshProducts();
+            syncOrder();
+            refreshProducts();
             return;
         }
         applyProductStockUpdate(data.product);
-        await syncOrder();
+
+        if (remainingCount === 0) {
+            await cancelTokenSilently();
+        } else {
+            loadTables();
+        }
+    }
+
+    async function cancelTokenSilently() {
+        if (!currentOrder || !currentOrder.id) return;
+        const orderId = currentOrder.id;
+        try {
+            await fetch('{{ route("pos.order.cancel", ":id") }}'.replace(':id', orderId), {
+                method: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            });
+        } catch (e) {
+            console.error('Auto-cancel token error:', e);
+        }
+        resetOrder();
+        await loadTables();
+        toast('Token removed', 'success');
     }
 
     function recalcOrderTotals() {
