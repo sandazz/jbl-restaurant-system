@@ -14,6 +14,7 @@ class Order extends Model
         'customer_name',
         'customer_phone',
         'user_id',
+        'shift_id',
         'order_type',
         'status',
         'subtotal',
@@ -25,6 +26,8 @@ class Order extends Model
         'total',
         'payment_method',
         'amount_paid',
+        'cash_amount',
+        'card_amount',
         'change_amount',
         'notes',
         'waiter_name',
@@ -44,6 +47,8 @@ class Order extends Model
         'tax_amount'             => 'decimal:2',
         'total'                  => 'decimal:2',
         'amount_paid'            => 'decimal:2',
+        'cash_amount'            => 'decimal:2',
+        'card_amount'            => 'decimal:2',
         'change_amount'          => 'decimal:2',
         'live_bill_enabled'      => 'boolean',
         'kot_printed_at'         => 'datetime',
@@ -67,6 +72,11 @@ class Order extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function shift()
+    {
+        return $this->belongsTo(ClerkBalancing::class, 'shift_id');
     }
 
     public function items()

@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\ClerkBalancing;
 use App\Models\Order;
-use Illuminate\Support\Carbon;
 
 class ShiftBalancingService
 {
@@ -42,7 +41,7 @@ class ShiftBalancingService
      * Close a shift.
      *
      * 1. Calculates physical cash total from submitted denomination counts.
-     * 2. Queries expected cash & card sales for this user between shift_start and now.
+     * 2. Queries expected cash & card sales for orders stamped with this shift_id.
      * 3. Calculates variance = physical_cash_total − expected_cash_total.
      * 4. Flags variance_type as shortage | excess | balanced.
      * 5. Saves and returns the closed record.
@@ -51,20 +50,16 @@ class ShiftBalancingService
     {
         $physicalCash = $this->calculatePhysicalCash($denominations);
 
-        $shiftStart = $balancing->shift_start ?? $balancing->created_at;
-        $shiftEnd   = now();
+        $shiftEnd = now();
 
-        $baseQuery = Order::where('user_id', $balancing->user_id)
-            ->where('status', 'completed')
-            ->whereBetween('updated_at', [$shiftStart, $shiftEnd]);
+        // cash_amount/card_amount hold the actual tender split for every payment
+        // method (including split/mixed), so summing them covers all orders
+        // stamped with this shift regardless of payment_method.
+        $baseQuery = Order::where('shift_id', $balancing->id)
+            ->where('status', 'completed');
 
-        $expectedCash = (clone $baseQuery)
-            ->whereIn('payment_method', ['cash'])
-            ->sum('amount_paid');
-
-        $expectedCard = (clone $baseQuery)
-            ->whereIn('payment_method', ['card', 'bank_transfer'])
-            ->sum('amount_paid');
+        $expectedCash = (clone $baseQuery)->sum('cash_amount');
+        $expectedCard = (clone $baseQuery)->sum('card_amount');
 
         $expectedTotal = $balancing->opening_amount + $expectedCash;
         $rawVariance  = $physicalCash - $expectedTotal;

@@ -2337,10 +2337,12 @@
                 return;
             }
         }
+        const splitCash = selectedPaymentMethod === 'split' ? (parseFloat(document.getElementById('splitCashAmount').value) || 0) : 0;
+        const splitCard = selectedPaymentMethod === 'split' ? (parseFloat(document.getElementById('splitCardAmount').value) || 0) : 0;
         const amountPaid  = selectedPaymentMethod === 'cash'
             ? parseFloat(document.getElementById('amountPaid').value)
             : selectedPaymentMethod === 'split'
-            ? parseFloat(document.getElementById('splitCashAmount').value) + parseFloat(document.getElementById('splitCardAmount').value)
+            ? splitCash + splitCard
             : total;
 
         const res = await fetch('{{ route("pos.order.pay", ":id") }}'.replace(':id', currentOrder.id), {
@@ -2349,6 +2351,8 @@
             body: JSON.stringify({
                 payment_method: selectedPaymentMethod,
                 amount_paid:    amountPaid,
+                cash_amount:    selectedPaymentMethod === 'split' ? splitCash : null,
+                card_amount:    selectedPaymentMethod === 'split' ? splitCard : null,
                 discount_type:  document.getElementById('discountType').value || null,
                 discount_value: parseFloat(document.getElementById('discountValue').value) || 0,
                     service_charge_enabled: document.getElementById('serviceChargeEnabled')?.checked || false,

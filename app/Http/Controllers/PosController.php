@@ -671,6 +671,8 @@ class PosController extends Controller
         $validated = $request->validate([
             'payment_method' => 'required|in:cash,card,bank_transfer,mixed,split',
             'amount_paid'    => 'required|numeric|min:0',
+            'cash_amount'    => 'nullable|numeric|min:0',
+            'card_amount'    => 'nullable|numeric|min:0',
             'discount_type'  => 'nullable|in:percentage,fixed',
             'discount_value' => 'nullable|numeric|min:0',
             'service_charge_enabled' => 'nullable|boolean',
@@ -696,8 +698,22 @@ class PosController extends Controller
         $amountPaid = $validated['amount_paid'];
         $change     = max(0, $amountPaid - $total);
 
+        [$cashAmount, $cardAmount] = match ($validated['payment_method']) {
+            'cash'  => [$amountPaid, 0],
+            'card', 'bank_transfer' => [0, $amountPaid],
+            default => [
+                (float) ($validated['cash_amount'] ?? 0),
+                (float) ($validated['card_amount'] ?? 0),
+            ],
+        };
+
+        $shiftId = ClerkBalancing::where('user_id', Auth::id())
+            ->where('status', 'open')
+            ->value('id');
+
         $order->update([
             'status'          => 'completed',
+            'shift_id'        => $shiftId,
             'subtotal'        => $subtotal,
             'service_charge_enabled' => $serviceChargeEnabled,
             'service_charge_rate' => $serviceChargeRate,
@@ -707,6 +723,8 @@ class PosController extends Controller
             'total'           => $total,
             'payment_method'  => $validated['payment_method'],
             'amount_paid'     => $amountPaid,
+            'cash_amount'     => $cashAmount,
+            'card_amount'     => $cardAmount,
             'change_amount'   => $change,
             'printed_at'      => now(),
         ]);
