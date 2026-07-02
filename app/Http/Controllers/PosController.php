@@ -699,10 +699,12 @@ class PosController extends Controller
         $change     = max(0, $amountPaid - $total);
 
         [$cashAmount, $cardAmount] = match ($validated['payment_method']) {
-            'cash'  => [$amountPaid, 0],
-            'card', 'bank_transfer' => [0, $amountPaid],
+            // Change is handed back from the cash tendered, so net cash
+            // retained is amountPaid - change, matching order `total`.
+            'cash'  => [$amountPaid - $change, 0],
+            'card', 'bank_transfer' => [0, $amountPaid - $change],
             default => [
-                (float) ($validated['cash_amount'] ?? 0),
+                max(0, (float) ($validated['cash_amount'] ?? 0) - $change),
                 (float) ($validated['card_amount'] ?? 0),
             ],
         };

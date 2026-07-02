@@ -52,8 +52,8 @@ class ShiftBalancingService
 
         $shiftEnd = now();
 
-        // cash_amount/card_amount hold the actual tender split for every payment
-        // method (including split/mixed), so summing them covers all orders
+        // cash_amount/card_amount hold the tender split net of change already
+        // (see PosController::payOrder), so summing them covers all orders
         // stamped with this shift regardless of payment_method.
         $baseQuery = Order::where('shift_id', $balancing->id)
             ->where('status', 'completed');
