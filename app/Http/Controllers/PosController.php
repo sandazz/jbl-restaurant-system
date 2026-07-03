@@ -150,7 +150,7 @@ class PosController extends Controller
             'customer_phone' => $validated['customer_phone'] ?? null,
             'user_id' => Auth::id(),
             'service_charge_enabled' => !$isTakeaway,
-            'service_charge_rate' => !$isTakeaway ? 8.00 : 0,
+            'service_charge_rate' => !$isTakeaway ? 10.00 : 0,
             'service_charge_amount' => 0,
             'order_type' => $validated['order_type'],
             'waiter_name' => $validated['waiter_name'] ?? ($user?->name ?? 'Unknown'),

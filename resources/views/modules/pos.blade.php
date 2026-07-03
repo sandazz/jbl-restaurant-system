@@ -414,7 +414,7 @@
                             <input type="checkbox" id="serviceChargeEnabled" checked onchange="onServiceChargeInputChange()" style="width:14px; height:14px;">
                             <span>Enable</span>
                         </label>
-                           <input type="number" id="serviceChargeRate" value="8" min="0" max="100" step="0.1" oninput="recalcTotal()" onchange="onServiceChargeInputChange()"
+                           <input type="number" id="serviceChargeRate" value="10" min="0" max="100" step="0.1" oninput="recalcTotal()" onchange="onServiceChargeInputChange()"
                                style="width:50px; font-size:10px; border:1px solid #e2e8f0; border-radius:5px; padding:3px 6px; outline:none; background:#f8fafc;">
                         <span style="font-size:10px; color:#64748b;">%</span>
                     </div>
@@ -982,7 +982,7 @@
             subtotal: 0, 
             total: 0,
             service_charge_enabled: true,
-            service_charge_rate: 8,
+            service_charge_rate: 10,
             service_charge_amount: 0,
             discount_amount: 0, 
             live_bill_enabled: false,
@@ -1083,7 +1083,7 @@
             document.getElementById('discountType').value = '';
             document.getElementById('discountValue').value = '';
             document.getElementById('serviceChargeEnabled').checked = currentOrder.service_charge_enabled !== false;
-            document.getElementById('serviceChargeRate').value = currentOrder.service_charge_rate ?? 8;
+            document.getElementById('serviceChargeRate').value = currentOrder.service_charge_rate ?? 10;
             const discountBadge = document.getElementById('tierDiscountBadge');
             if (discountBadge) discountBadge.style.display = 'none';
 
@@ -1134,7 +1134,7 @@
             subtotal: 0,
             total: 0,
             service_charge_enabled: true,
-            service_charge_rate: 8,
+            service_charge_rate: 10,
             service_charge_amount: 0,
             discount_amount: 0,
             live_bill_enabled: false,
@@ -1146,7 +1146,7 @@
         document.getElementById('discountType').value = '';
         document.getElementById('discountValue').value = '';
         document.getElementById('serviceChargeEnabled').checked = true;
-        document.getElementById('serviceChargeRate').value = 8;
+        document.getElementById('serviceChargeRate').value = 10;
         const discountBadge = document.getElementById('tierDiscountBadge');
         if (discountBadge) discountBadge.style.display = 'none';
 
@@ -1193,7 +1193,7 @@
             subtotal: 0,
             total: 0,
             service_charge_enabled: true,
-            service_charge_rate: 8,
+            service_charge_rate: 10,
             service_charge_amount: 0,
             discount_amount: 0,
             live_bill_enabled: false,
@@ -1205,7 +1205,7 @@
         document.getElementById('discountType').value = '';
         document.getElementById('discountValue').value = '';
         document.getElementById('serviceChargeEnabled').checked = true;
-        document.getElementById('serviceChargeRate').value = 8;
+        document.getElementById('serviceChargeRate').value = 10;
         const discountBadge = document.getElementById('tierDiscountBadge');
         if (discountBadge) discountBadge.style.display = 'none';
 
@@ -1299,7 +1299,7 @@
                 subtotal: 0,
                 total: 0,
                 service_charge_enabled: true,
-                service_charge_rate: 8,
+                service_charge_rate: 10,
                 service_charge_amount: 0,
                 discount_amount: 0,
                 live_bill_enabled: false,
@@ -1312,7 +1312,7 @@
             };
 
             document.getElementById('serviceChargeEnabled').checked = true;
-            document.getElementById('serviceChargeRate').value = 8;
+            document.getElementById('serviceChargeRate').value = 10;
             renderTableView();
             renderBill();
             hideLoading();
