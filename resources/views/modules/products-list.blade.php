@@ -127,6 +127,9 @@
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         <div class="flex items-center justify-center gap-2">
+                                            <a href="{{ route('products.show', $product) }}" class="text-purple-600 hover:text-purple-800 text-sm font-semibold">
+                                                <i class="fas fa-flask mr-1"></i>Recipe
+                                            </a>
                                             <a href="{{ route('products.edit', $product) }}" class="text-blue-600 hover:text-blue-800 text-sm font-semibold">
                                                 <i class="fas fa-edit mr-1"></i>Edit
                                             </a>

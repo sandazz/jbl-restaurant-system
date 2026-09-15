@@ -55,6 +55,8 @@ Route::middleware('auth')->group(function () {
 
     // Product (Inventory) CRUD routes
     Route::get('/products/low-stock', [ProductController::class, 'lowStock'])->name('products.low-stock');
+    Route::get('/products/{product}/recipe', [ProductController::class, 'recipe'])->name('products.recipe');
+    Route::post('/products/{product}/recipe', [ProductController::class, 'updateRecipe'])->name('products.recipe.update');
     Route::resource('products', ProductController::class);
     Route::get('/inventory', [ProductController::class, 'index'])->name('inventory.index');
 
@@ -126,6 +128,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/tier-discounts/{tierDiscount}', [TierDiscountController::class, 'destroy'])->name('tier-discounts.destroy');
 
     // Raw Materials (ERP Inventory) — distinct from the product/menu-item inventory
+    Route::post('/raw-materials/{rawMaterial}/restock', [RawMaterialController::class, 'restock'])->name('raw-materials.restock');
     Route::resource('raw-materials', RawMaterialController::class);
 
     // Audit Logs & EOD Report

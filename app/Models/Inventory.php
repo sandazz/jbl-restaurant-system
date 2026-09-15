@@ -39,6 +39,11 @@ class Inventory extends Model
             ->withTimestamps();
     }
 
+    public function movements()
+    {
+        return $this->hasMany(InventoryMovement::class);
+    }
+
     public function isLowStock(): bool
     {
         return $this->current_balance <= $this->reorder_level;

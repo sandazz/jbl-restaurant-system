@@ -4,16 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Models\Inventory;
 use App\Models\Supplier;
+use App\Services\InventoryDeductionService;
 use Illuminate\Http\Request;
 
 class RawMaterialController extends Controller
 {
     public function index()
     {
-        $items   = Inventory::with('supplier')->latest()->paginate(50);
+        $items   = Inventory::with('supplier')->latest()->paginate(10);
         $modules = auth()->user()->role->modules()->get();
 
-        return view('modules.raw-materials.index', compact('items', 'modules'));
+        return view('modules.raw-materials-list', compact('items', 'modules'));
     }
 
     public function create()
@@ -21,7 +22,7 @@ class RawMaterialController extends Controller
         $suppliers = Supplier::where('status', 'active')->get();
         $modules   = auth()->user()->role->modules()->get();
 
-        return view('modules.raw-materials.create', compact('suppliers', 'modules'));
+        return view('modules.raw-materials-create', compact('suppliers', 'modules'));
     }
 
     public function store(Request $request)
@@ -47,9 +48,10 @@ class RawMaterialController extends Controller
     public function show(Inventory $rawMaterial)
     {
         $rawMaterial->load('supplier', 'menuItems');
+        $movements = $rawMaterial->movements()->with('user')->latest()->paginate(20);
         $modules = auth()->user()->role->modules()->get();
 
-        return view('modules.raw-materials.show', compact('rawMaterial', 'modules'));
+        return view('modules.raw-materials-show', compact('rawMaterial', 'movements', 'modules'));
     }
 
     public function edit(Inventory $rawMaterial)
@@ -57,7 +59,7 @@ class RawMaterialController extends Controller
         $suppliers = Supplier::where('status', 'active')->get();
         $modules   = auth()->user()->role->modules()->get();
 
-        return view('modules.raw-materials.edit', compact('rawMaterial', 'suppliers', 'modules'));
+        return view('modules.raw-materials-edit', compact('rawMaterial', 'suppliers', 'modules'));
     }
 
     public function update(Request $request, Inventory $rawMaterial)
@@ -86,5 +88,18 @@ class RawMaterialController extends Controller
 
         return redirect()->route('raw-materials.index')
             ->with('success', 'Raw material deleted.');
+    }
+
+    public function restock(Request $request, Inventory $rawMaterial, InventoryDeductionService $service)
+    {
+        $validated = $request->validate([
+            'quantity' => 'required|numeric|min:0.001',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $service->restock($rawMaterial, $validated['quantity'], reason: 'purchase', notes: $validated['notes'] ?? null);
+
+        return redirect()->route('raw-materials.show', $rawMaterial)
+            ->with('success', 'Stock added successfully.');
     }
 }

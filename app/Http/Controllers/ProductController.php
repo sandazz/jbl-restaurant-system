@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\Category;
+use App\Models\Inventory;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -88,13 +89,15 @@ class ProductController extends Controller
             $validated['image'] = $request->file('image')->store('products', 'public');
         }
 
-        Product::create($validated);
-        return redirect()->route('inventory.index')->with('success', 'Product created successfully');
+        $product = Product::create($validated);
+        return redirect()->route('products.recipe', $product)
+            ->with('success', 'Product created successfully. Now add the raw materials used in this recipe.');
     }
 
     public function show(Product $product)
     {
         $modules = auth()->user()->role->modules()->get();
+        $product->load(['category', 'supplierRecord', 'ingredients']);
         return view('modules.products-show', [
             'product' => $product,
             'modules' => $modules,
@@ -167,5 +170,46 @@ class ProductController extends Controller
     {
         $product->delete();
         return redirect()->route('inventory.index')->with('success', 'Product deleted successfully');
+    }
+
+    public function recipe(Product $product)
+    {
+        $modules = auth()->user()->role->modules()->get();
+        $product->load('ingredients');
+        $rawMaterials = Inventory::where('status', 'active')->orderBy('name')->get();
+
+        return view('modules.products-recipe', [
+            'product' => $product,
+            'modules' => $modules,
+            'rawMaterials' => $rawMaterials,
+        ]);
+    }
+
+    public function updateRecipe(Request $request, Product $product)
+    {
+        // Drop rows left blank (e.g. an added row whose dropdown was never chosen)
+        // so an incomplete row doesn't fail validation for the whole recipe.
+        $ingredients = collect($request->input('ingredients', []))
+            ->filter(fn ($row) => filled($row['inventory_id'] ?? null) && filled($row['quantity_required'] ?? null))
+            ->values()
+            ->all();
+
+        $validated = validator(
+            ['ingredients' => $ingredients],
+            [
+                'ingredients' => 'nullable|array',
+                'ingredients.*.inventory_id' => 'required|exists:inventories,id',
+                'ingredients.*.quantity_required' => 'required|numeric|min:0.001',
+            ]
+        )->validate();
+
+        $sync = [];
+        foreach ($validated['ingredients'] ?? [] as $row) {
+            $sync[$row['inventory_id']] = ['quantity_required' => $row['quantity_required']];
+        }
+
+        $product->ingredients()->sync($sync);
+
+        return redirect()->route('products.recipe', $product)->with('success', 'Recipe updated successfully.');
     }
 }

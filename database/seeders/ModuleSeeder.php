@@ -52,6 +52,14 @@ class ModuleSeeder extends Seeder
                 'updated_at' => now(),
             ],
             [
+                'name' => 'Raw Materials',
+                'description' => 'Manage raw materials and recipes (ingredients & packaging)',
+                'icon' => 'flask',
+                'route' => 'raw-materials.index',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
                 'name' => 'Wastage Management',
                 'description' => 'Track product wastage and losses',
                 'icon' => 'trash-alt',
