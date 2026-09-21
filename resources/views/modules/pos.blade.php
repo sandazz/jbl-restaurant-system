@@ -2567,7 +2567,7 @@
             + '<div class="row sm mt4 mb4"><span class="label">Order:</span><span class="value bold">' + data.order_number + '</span></div>'
             + (data.table_name ? '<div class="row sm mb4"><span class="label">Table:</span><span class="value bold">' + escapeHtml(data.table_name) + '</span></div>' : '')
             + (data.token_number ? '<div class="row sm mb4"><span class="label">Token:</span><span class="value bold">' + data.token_number + '</span></div>' : '')
-            + '<div class="row sm mb4"><span class="label">Time:</span><span class="value">' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) + '</span></div>'
+            + '<div class="row sm mb4"><span class="label">Date:</span><span class="value">' + new Date().toLocaleDateString([], {day:'2-digit', month:'short', year:'numeric'}) + ' ' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) + '</span></div>'
             + '<div class="divider-double"></div>'
             + items
             + '<div class="divider-solid mt4"></div>'
